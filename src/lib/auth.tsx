@@ -23,7 +23,6 @@ import {
 } from "react";
 import type { AppRole, AuthState, AuthUser } from "./types";
 
-const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? "";
 const TOKEN_STORAGE_KEY = "supporthub_google_id_token";
 
 let currentToken: string | null = null;
@@ -151,10 +150,30 @@ declare global {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [googleClientId, setGoogleClientId] = useState<string>(
+    () => (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? "",
+  );
   const [state, setState] = useState<AuthState>({ status: "checking" });
   const [token, setToken] = useState<string | null>(() => getAuthToken());
   const [previewMode, setPreviewMode] = useState(false);
   const [previewRole, setPreviewRole] = useState<AppRole>("customer");
+
+  // If Client ID wasn't provided at build time, fetch it dynamically from backend /api/config
+  useEffect(() => {
+    if (googleClientId) return;
+    fetch("/api/config")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { googleClientId?: string } | null) => {
+        if (data?.googleClientId) {
+          setGoogleClientId(data.googleClientId);
+        } else {
+          setState({ status: "unavailable" });
+        }
+      })
+      .catch(() => {
+        setState({ status: "unavailable" });
+      });
+  }, [googleClientId]);
 
   const authenticateFromToken = useCallback((idToken: string): boolean => {
     const payload = parseJwt(idToken);
@@ -202,8 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize or check stored session
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID) {
-      setState({ status: "unavailable" });
+    if (!googleClientId) {
+      // Don't mark unavailable yet if we are still attempting to fetch /api/config
       return;
     }
 
@@ -214,16 +233,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setState({ status: "anonymous" });
-  }, [authenticateFromToken]);
+  }, [googleClientId, authenticateFromToken]);
 
   // Initialize Google Identity Services SDK when available
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || typeof window === "undefined") return;
+    if (!googleClientId || typeof window === "undefined") return;
 
     function setupGsi() {
       if (!window.google?.accounts?.id) return;
       window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
+        client_id: googleClientId,
         callback: (res: { credential?: string }) => {
           if (res.credential) {
             handleCredentialResponse(res.credential);
@@ -246,10 +265,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, 300);
       return () => clearInterval(interval);
     }
-  }, [handleCredentialResponse]);
+  }, [googleClientId, handleCredentialResponse]);
 
   const signIn = useCallback(() => {
-    if (!GOOGLE_CLIENT_ID) {
+    if (!googleClientId) {
       setState({ status: "unavailable" });
       return;
     }
@@ -287,7 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeRole,
       previewMode,
       idToken: token,
-      googleClientId: GOOGLE_CLIENT_ID,
+      googleClientId,
       signIn,
       signOut,
       enterPreviewMode,

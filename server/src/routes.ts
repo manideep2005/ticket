@@ -7,7 +7,15 @@ import type { Category, Priority, ReportSummary, Ticket, TicketStatus } from "./
 
 export const apiRouter = Router();
 
-// Apply auth to all /api routes
+/** Public config endpoint — allows frontend to discover Client ID at runtime */
+apiRouter.get("/config", (_req, res: Response) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+    gcpProjectId: process.env.GCP_PROJECT_ID || "ticket-511417",
+  });
+});
+
+// Apply auth to all protected /api routes
 apiRouter.use(requireAuth);
 
 /** GET /api/me — Returns current authenticated user profile and resolved role */
