@@ -39,6 +39,11 @@ Optional environment variable (`.env.local`):
 Everyone works on short-lived branches off `main` and merges through a pull
 request — `main` should always build.
 
+**Getting access:** the repository owner adds you under *Settings →
+Collaborators and teams*. Enable a branch protection rule on `main`
+(*Settings → Branches*) so nobody can push to it directly and every change
+needs a reviewed pull request with a passing build.
+
 ```bash
 git clone https://github.com/manideep2005/ticket.git
 cd ticket
@@ -60,11 +65,17 @@ House rules that keep this branchable:
 - **No mock data, ever.** Every screen calls the real `/api/*` endpoints. If the
   backend is down, the UI shows the error state — that is the correct behavior,
   not a bug to work around with fixtures.
+- **This repository is public** — anyone can read it. That is fine for source
+  code and templates, but it means a single committed secret is exposed to the
+  whole internet instantly. If the project later holds anything sensitive
+  (customer data samples, internal API designs), switch it to private first via
+  *Settings → General → Danger Zone → Change visibility*.
 - **Never commit credentials.** `.env*`, `local.settings.json`, `*.key`, `*.pem`
   and `service-principal.json` are already in `.gitignore`. Copy
-  `.env.example` → `.env.local` for anything local. If a secret ever lands in a
-  commit, rotate it — deleting the file in a later commit does not remove it
-  from history.
+  `.env.local` from `.env.example` for anything local. The Static Web Apps
+  **deployment token** goes into *GitHub → Settings → Secrets and variables →
+  Actions*, never into a file. If a secret ever lands in a commit, rotate it —
+  deleting the file in a later commit does not remove it from history.
 - **Keep the API contract in sync.** If your change alters an endpoint, request
   body, response shape or status transition, update the contract section of this
   README in the same pull request so the Functions backend and the UI cannot
