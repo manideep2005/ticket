@@ -1,0 +1,349 @@
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api, unwrapList } from "../lib/api";
+import { useApi } from "../hooks/useApi";
+import { useAuth } from "../lib/auth";
+import { formatDateShort, formatDuration, plural } from "../lib/format";
+import type { ReportSummary, Ticket } from "../lib/types";
+import {
+  EmptyState,
+  ErrorState,
+  SkeletonCard,
+} from "../components/ui";
+import { Icon } from "../components/icons";
+
+const WINDOWS = [7, 30, 90] as const;
+
+/** Count map builder — always over real records. */
+function countBy<T extends string>(items: string[], _key?: unknown): Record<T, number> {
+  const out: Record<string, number> = {};
+  for (const item of items) out[item] = (out[item] ?? 0) + 1;
+  return out as Record<T, number>;
+}
+
+/**
+ * Customer view: derive the same summary shape from the tickets the API
+ * actually returned for this user. Nothing is invented — numbers only exist
+ * because the backend returned real documents.
+ */
+function summarizeFromTickets(tickets: Ticket[], windowDays: number): ReportSummary {
+  const windowStart = new Date(Date.now() - windowDays * 86_400_000);
+  const inWindow = tickets.filter(
+    (t) => new Date(t.createdAtUtc).getTime() >= windowStart.getTime(),
+  );
+
+  const resolved = inWindow.filter(
+    (t) => t.resolvedAtUtc && (t.status === "Resolved" || t.status === "Closed"),
+  );
+  const resolutionMs = resolved.map(
+    (t) => new Date(t.resolvedAtUtc!).getTime() - new Date(t.createdAtUtc).getTime(),
+  );
+  const avgHours =
+    resolutionMs.length > 0
+      ? resolutionMs.reduce((a, b) => a + b, 0) / resolutionMs.length / 3_600_000
+      : null;
+
+  const buckets = new Map<string, number>();
+  for (let i = 0; i < windowDays; i++) {
+    const d = new Date(windowStart.getTime() + i * 86_400_000);
+    buckets.set(d.toISOString().slice(0, 10), 0);
+  }
+  for (const t of inWindow) {
+    const key = t.createdAtUtc.slice(0, 10);
+    buckets.set(key, (buckets.get(key) ?? 0) + 1);
+  }
+
+  const closedCount = inWindow.filter((t) => t.status === "Closed").length;
+  const resolvedCount = inWindow.filter((t) => t.status === "Resolved").length;
+
+  return {
+    windowDays,
+    windowStartUtc: windowStart.toISOString(),
+    generatedAtUtc: new Date().toISOString(),
+    totalTickets: inWindow.length,
+    openTickets: inWindow.length - resolvedCount - closedCount,
+    resolvedTickets: resolvedCount,
+    closedTickets: closedCount,
+    byStatus: countBy(inWindow.map((t) => t.status)),
+    byCategory: countBy(inWindow.map((t) => String(t.category))),
+    byPriority: countBy(inWindow.map((t) => t.priority)),
+    byTeam: countBy(
+      inWindow.map((t) => t.assignedTeam ?? "Unassigned"),
+    ),
+    averageResolutionTimeHours: avgHours,
+    volumeOverTime: [...buckets.entries()].map(([date, count]) => ({ date, count })),
+  };
+}
+
+function BarList({
+  data,
+  emptyLabel = "No data yet",
+}: {
+  data: Record<string, number>;
+  emptyLabel?: string;
+}) {
+  const entries = Object.entries(data)
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1]);
+  if (entries.length === 0) {
+    return <p className="muted small">{emptyLabel}</p>;
+  }
+  const max = Math.max(...entries.map(([, v]) => v));
+  return (
+    <div className="bar-list">
+      {entries.map(([name, value], i) => (
+        <div className="bar-row" key={name}>
+          <div className="bar-head">
+            <span className="bar-name">{name}</span>
+            <span className="bar-count">{value}</span>
+          </div>
+          <div className="bar-track">
+            <div
+              className={`bar-fill c${(i % 7) + 1}`}
+              style={{ width: `${Math.round((value / max) * 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function VolumeChart({ data }: { data: { date: string; count: number }[] }) {
+  if (data.length === 0) return <p className="muted small">No data yet.</p>;
+  const max = Math.max(1, ...data.map((d) => d.count));
+  const showEvery = Math.ceil(data.length / 10);
+  return (
+    <div className="column-chart" role="img" aria-label="Ticket volume over time">
+      {data.map((d, i) => (
+        <div className="column" key={d.date}>
+          <div
+            className="col-bar"
+            style={{ height: `${Math.max(3, (d.count / max) * 100)}%` }}
+          >
+            <span className="col-tip">
+              {plural(d.count, "ticket")} · {formatDateShort(d.date)}
+            </span>
+          </div>
+          {i % showEvery === 0 && (
+            <span className="col-label">{formatDateShort(d.date)}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function Dashboard() {
+  const navigate = useNavigate();
+  const { activeRole } = useAuth();
+  const isAgentLike = activeRole === "agent" || activeRole === "admin";
+  const [windowDays, setWindowDays] = useState<number>(30);
+
+  // Agents/admins get server-computed reports (protected endpoint);
+  // customers derive their personal overview from their own ticket list.
+  const serverReport = useApi(
+    () => api.getReportSummary(windowDays),
+    [windowDays],
+    { enabled: isAgentLike },
+  );
+  const ownTickets = useApi(
+    async () => (await api.listTickets()) as { tickets: Ticket[] } | Ticket[],
+    [],
+    { enabled: !isAgentLike },
+  );
+
+  const summary = useMemo<ReportSummary | null>(() => {
+    if (isAgentLike) return serverReport.data;
+    if (!ownTickets.data) return null;
+    const tickets = unwrapList<Ticket>(ownTickets.data, "tickets");
+    return summarizeFromTickets(tickets, windowDays);
+  }, [isAgentLike, serverReport.data, ownTickets.data, windowDays]);
+
+  const loading = isAgentLike ? serverReport.initialLoading : ownTickets.initialLoading;
+  const error = isAgentLike ? serverReport.error : ownTickets.error;
+  const refetch = isAgentLike ? serverReport.refetch : ownTickets.refetch;
+
+  return (
+    <>
+      <div className="page-header">
+        <div className="page-title-block">
+          <h1 className="page-title">{isAgentLike ? "Reporting & analytics" : "My support overview"}</h1>
+          <p className="page-subtitle">
+            {isAgentLike
+              ? "Every number below is aggregated from tickets stored in Cosmos DB — no sample or hardcoded data."
+              : "A summary of your own support tickets, calculated from the records the API returned for you."}
+          </p>
+        </div>
+        <div className="page-actions">
+          <select
+            className="compact"
+            aria-label="Reporting time window"
+            value={windowDays}
+            onChange={(e) => setWindowDays(Number(e.target.value))}
+          >
+            {WINDOWS.map((w) => (
+              <option key={w} value={w}>
+                Last {w} days
+              </option>
+            ))}
+          </select>
+          <button className="btn" onClick={refetch} disabled={loading}>
+            <Icon name="refresh" size={14} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <>
+          <div className="kpi-grid">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} height={96} />
+            ))}
+          </div>
+          <div className="grid-2">
+            <SkeletonCard height={240} />
+            <SkeletonCard height={240} />
+          </div>
+        </>
+      ) : error ? (
+        <div className="card">
+          <ErrorState error={error} onRetry={refetch} />
+        </div>
+      ) : !summary ? null : summary.totalTickets === 0 ? (
+        <div className="card">
+          <EmptyState
+            icon="📊"
+            title={`No tickets in the last ${windowDays} days`}
+            description={
+              isAgentLike
+                ? "Metrics will appear as soon as tickets are submitted through the API."
+                : "You haven't submitted any support tickets in this period."
+            }
+            actions={
+              <button className="btn btn-primary" onClick={() => navigate("/tickets/new")}>
+                <Icon name="plus" size={14} /> Create a ticket
+              </button>
+            }
+          />
+        </div>
+      ) : (
+        <>
+          <div className="kpi-grid">
+            <div className="kpi accent-primary">
+              <div className="kpi-label">Total tickets</div>
+              <div className="kpi-value">{summary.totalTickets.toLocaleString()}</div>
+              <div className="kpi-hint">created in the last {summary.windowDays} days</div>
+            </div>
+            <div className="kpi accent-warning">
+              <div className="kpi-label">Open</div>
+              <div className="kpi-value">{summary.openTickets.toLocaleString()}</div>
+              <div className="kpi-hint">New · Queued · Assigned · In progress · Waiting</div>
+            </div>
+            <div className="kpi accent-success">
+              <div className="kpi-label">Resolved</div>
+              <div className="kpi-value">{summary.resolvedTickets.toLocaleString()}</div>
+              <div className="kpi-hint">
+                {summary.closedTickets > 0
+                  ? `+ ${summary.closedTickets} closed`
+                  : "closed tickets counted separately"}
+              </div>
+            </div>
+            <div className="kpi accent-info">
+              <div className="kpi-label">Avg resolution time</div>
+              <div className="kpi-value">
+                {formatDuration(summary.averageResolutionTimeHours)}
+              </div>
+              <div className="kpi-hint">created → resolvedAtUtc, mean over resolved</div>
+            </div>
+          </div>
+
+          <div className="grid-2">
+            <div className="card">
+              <div className="card-header">
+                <h3>Ticket volume over time</h3>
+                <span className="muted small">tickets created per day</span>
+              </div>
+              <div className="card-body">
+                <VolumeChart data={summary.volumeOverTime} />
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-header">
+                <h3>By status</h3>
+              </div>
+              <div className="card-body">
+                <BarList data={summary.byStatus} />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid-3">
+            <div className="card">
+              <div className="card-header">
+                <h3>By category</h3>
+              </div>
+              <div className="card-body">
+                <BarList data={summary.byCategory} />
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-header">
+                <h3>By priority</h3>
+              </div>
+              <div className="card-body">
+                <BarList data={summary.byPriority} />
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-header">
+                <h3>By team</h3>
+              </div>
+              <div className="card-body">
+                <BarList
+                  data={summary.byTeam}
+                  emptyLabel="No tickets assigned yet."
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="card card-pad">
+            <div className="panel-title" style={{ marginBottom: 8 }}>
+              How these numbers are calculated
+            </div>
+            <ul className="muted small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+              <li>
+                <strong>Time window:</strong> last {summary.windowDays} days from now
+                (rolling), based on <code>createdAtUtc</code>. Window starts{" "}
+                {new Date(summary.windowStartUtc).toUTCString()}.
+              </li>
+              <li>
+                <strong>Open</strong> = tickets whose status is not Resolved or Closed.
+              </li>
+              <li>
+                <strong>Average resolution time</strong> = mean of (
+                <code>resolvedAtUtc − createdAtUtc</code>) across tickets resolved in the
+                window; shown as “—” when nothing has been resolved yet.
+              </li>
+              <li>
+                {isAgentLike ? (
+                  <>
+                    Aggregated server-side by <code>GET /api/reports/summary</code> from
+                    real Cosmos DB documents.
+                  </>
+                ) : (
+                  <>
+                    Computed in the browser from your tickets returned by{" "}
+                    <code>GET /api/tickets</code>.
+                  </>
+                )}
+              </li>
+            </ul>
+          </div>
+        </>
+      )}
+    </>
+  );
+}

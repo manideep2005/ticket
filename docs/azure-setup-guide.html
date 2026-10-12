@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Azure Setup Guide — SupportHub (what to collect, step by step)</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --surface:#fff; --surface-2:#fafbfc; --border:#e3e6ea; --border-strong:#cdd2d9;
+    --text:#16181d; --text-2:#4d5561; --muted:#79808d;
+    --primary:#4f46e5; --primary-hover:#4338ca; --primary-soft:#eef2ff;
+    --success:#15803d; --success-soft:#ecfdf3;
+    --warning:#b45309; --warning-soft:#fffbeb;
+    --danger:#b42318; --danger-soft:#fef3f2;
+    --info:#0369a1; --info-soft:#f0f9ff;
+    --radius:10px; --sidebar:270px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.55; font-size:15px;
+  }
+  a{color:var(--primary); text-decoration:none}
+  a:hover{text-decoration:underline}
+  h1,h2,h3{margin:0;line-height:1.25;letter-spacing:-.01em}
+  code{font-family:var(--mono);font-size:.9em;background:#f1f3f6;padding:1px 5px;border-radius:5px}
+
+  /* ---------- layout ---------- */
+  .layout{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);min-height:100vh}
+  .side{
+    position:sticky;top:0;height:100vh;overflow-y:auto;background:#101423;color:#c7cbd6;
+    padding:20px 16px 30px;border-right:1px solid #1d2338;
+  }
+  .brand{display:flex;gap:10px;align-items:center;margin-bottom:6px}
+  .mark{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:800;
+    background:linear-gradient(135deg,#4f46e5,#0ea5e9);flex:0 0 auto}
+  .brand b{color:#fff;font-size:15px}
+  .brand small{display:block;color:#7f879e;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+  .side .tagline{font-size:12.5px;color:#7f879e;margin:8px 0 18px}
+
+  .progress-wrap{background:#161b2e;border-radius:10px;padding:12px;margin-bottom:16px}
+  .progress-top{display:flex;justify-content:space-between;font-size:12.5px;color:#aab1c6;margin-bottom:7px}
+  .progress-top b{color:#fff}
+  .bar{height:7px;background:#242b45;border-radius:99px;overflow:hidden}
+  .bar>span{display:block;height:100%;width:0;background:linear-gradient(90deg,#6366f1,#22d3ee);transition:width .35s ease}
+  .reset{margin-top:10px;background:none;border:1px solid #2b3350;color:#9aa2ba;font:inherit;font-size:12px;
+    padding:5px 9px;border-radius:7px;cursor:pointer;width:100%}
+  .reset:hover{background:#1a2036;color:#fff}
+
+  nav.toc{display:flex;flex-direction:column;gap:2px}
+  nav.toc a{display:flex;gap:9px;align-items:center;padding:7px 9px;border-radius:8px;color:#c7cbd6;font-size:13.4px}
+  nav.toc a:hover{background:#1a2036;color:#fff;text-decoration:none}
+  nav.toc a .n{width:19px;height:19px;border-radius:6px;background:#242b45;color:#98a2be;display:grid;place-items:center;
+    font-size:10.5px;font-weight:700;flex:0 0 auto}
+  nav.toc a .st{margin-left:auto;font-size:11px;color:#6f7896}
+  nav.toc a.done .n{background:var(--success);color:#fff}
+
+  main{padding:34px 40px 90px;max-width:1000px;min-width:0}
+  .page-head{border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:26px}
+  .page-head h1{font-size:27px}
+  .page-head p{color:var(--text-2);margin:9px 0 0;max-width:70ch}
+  .meta-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:var(--muted)}
+
+  section{margin-bottom:34px;scroll-margin-top:16px}
+  section>h2{font-size:19px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  section>h2 .chip{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;background:var(--primary-soft);
+    color:var(--primary-hover);padding:2px 8px;border-radius:99px;font-weight:700}
+  .lead{color:var(--text-2);margin:0 0 14px;max-width:78ch}
+
+  /* ---------- step cards ---------- */
+  .step{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    box-shadow:0 1px 2px rgba(16,24,40,.05);margin-bottom:12px;overflow:hidden}
+  .step.done{border-color:#bbf7d0;background:linear-gradient(180deg,#f7fef9,#fff)}
+  .step-head{display:flex;gap:12px;align-items:flex-start;padding:14px 16px}
+  .step-head input[type=checkbox]{width:18px;height:18px;margin:2px 0 0;accent-color:#15803d;flex:0 0 auto;cursor:pointer}
+  .step-title{font-weight:650;font-size:15px}
+  .step-title .num{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+  .step-body{padding:0 16px 16px 46px;color:var(--text-2);font-size:14px}
+  .step-body ul{margin:8px 0 0;padding-left:20px}
+  .step-body li{margin:4px 0}
+  .time{font-size:11.5px;color:var(--muted);margin-left:auto;white-space:nowrap;padding-top:3px}
+
+  pre{position:relative;background:#0f1424;color:#e6e9f2;border-radius:9px;padding:13px 44px 13px 14px;
+    overflow-x:auto;font-family:var(--mono);font-size:12.7px;line-height:1.6;margin:11px 0 0}
+  pre code{background:none;padding:0;color:inherit;font-size:inherit}
+  .copy{position:absolute;top:8px;right:8px;background:#232a44;border:1px solid #333c5e;color:#c3cadd;
+    font:inherit;font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer}
+  .copy:hover{background:#2e3760;color:#fff}
+  .copy.ok{background:#14532d;border-color:#166534;color:#d7f5e2}
+
+  /* ---------- callouts ---------- */
+  .note{border:1px solid;border-radius:9px;padding:11px 14px;font-size:13.6px;margin:12px 0 0;display:flex;gap:10px}
+  .note.warn{background:var(--warning-soft);border-color:#fde68a;color:#92400e}
+  .note.info{background:var(--info-soft);border-color:#bae6fd;color:#075985}
+  .note.danger{background:var(--danger-soft);border-color:#fecaca;color:#912018}
+  .note.ok{background:var(--success-soft);border-color:#bbf7d0;color:#14532d}
+  .note b{display:block}
+
+  /* ---------- collect badges ---------- */
+  .collect{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+  .collect span{display:inline-flex;align-items:center;gap:6px;font-size:12.4px;font-weight:600;padding:3px 9px;
+    border-radius:99px;border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text-2)}
+  .collect .safe{border-color:#bbf7d0;background:var(--success-soft);color:#14532d}
+  .collect .secret{border-color:#fecaca;background:var(--danger-soft);color:#912018}
+
+  /* ---------- tables ---------- */
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--border);
+    border-radius:var(--radius);background:var(--surface);margin-top:11px}
+  .table-scroll table{margin:0;min-width:520px;border:0;border-radius:0}
+  table{width:100%;border-collapse:collapse;font-size:13.6px;background:var(--surface);
+    border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+    background:var(--surface-2);padding:9px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.k{font-family:var(--mono);font-size:12.4px;white-space:nowrap}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;white-space:nowrap}
+  .pill.safe{background:var(--success-soft);color:#14532d}
+  .pill.secret{background:var(--danger-soft);color:#912018}
+  .pill.fixed{background:var(--primary-soft);color:var(--primary-hover)}
+  .pill.opt{background:#f1f3f6;color:var(--text-2)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:15px 17px}
+  .card h3{font-size:14.5px;margin-bottom:7px}
+  .card ul{margin:0;padding-left:19px;color:var(--text-2);font-size:13.6px}
+  .card li{margin:4px 0}
+  .final{background:#0f1424;color:#e7eaf3;border-radius:14px;padding:22px 24px}
+  .final h2{color:#fff}
+  .final a{color:#a5b4fc}
+
+  @media (max-width:900px){
+    .layout{grid-template-columns:1fr}
+    .side{position:static;height:auto}
+    main{padding:22px 18px 70px}
+    .grid2{grid-template-columns:1fr}
+  }
+  @media print{
+    .side{display:none}.layout{grid-template-columns:1fr}main{padding:0;max-width:none}
+    .step{break-inside:avoid;box-shadow:none}.copy{display:none}pre{background:#f4f5f7;color:#111}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="side">
+    <div class="brand">
+      <span class="mark">S</span>
+      <span><b>SupportHub</b><small>Azure setup guide</small></span>
+    </div>
+    <p class="tagline">Everything to create and collect in Azure, so the backend can be built and deployed.</p>
+
+    <div class="progress-wrap">
+      <div class="progress-top"><span>Progress</span><b><span id="doneCount">0</span>/<span id="totalCount">0</span></b></div>
+      <div class="bar"><span id="barFill"></span></div>
+      <button class="reset" id="resetBtn">Reset progress</button>
+    </div>
+
+    <nav class="toc" id="toc">
+      <a href="#before"><span class="n">0</span> Before you start <span class="st" data-count-for="before"></span></a>
+      <a href="#rg"><span class="n">1</span> Resource group <span class="st" data-count-for="rg"></span></a>
+      <a href="#cosmos"><span class="n">2</span> Cosmos DB <span class="st" data-count-for="cosmos"></span></a>
+      <a href="#bus"><span class="n">3</span> Service Bus <span class="st" data-count-for="bus"></span></a>
+      <a href="#func"><span class="n">4</span> Functions + Insights <span class="st" data-count-for="func"></span></a>
+      <a href="#identity"><span class="n">5</span> Managed identity <span class="st" data-count-for="identity"></span></a>
+      <a href="#swa"><span class="n">6</span> Static Web App <span class="st" data-count-for="swa"></span></a>
+      <a href="#entra"><span class="n">7</span> Entra ID accounts <span class="st" data-count-for="entra"></span></a>
+      <a href="#email"><span class="n">8</span> Email (ACS) <span class="st" data-count-for="email"></span></a>
+      <a href="#cost"><span class="n">9</span> Cost &amp; quota <span class="st" data-count-for="cost"></span></a>
+      <a href="#handover"><span class="n">10</span> Hand over values <span class="st" data-count-for="handover"></span></a>
+    </nav>
+  </aside>
+
+  <!-- ============ CONTENT ============ -->
+  <main>
+    <div class="page-head">
+      <h1>Azure setup guide — what to create and what to collect</h1>
+      <p>Work top to bottom. Each step says where to click (portal) or what to paste (CLI), and exactly which value to collect at the end. Tick a step when done — progress is saved in this browser.</p>
+      <div class="meta-row">
+        <span>⏱ Estimated: 1.5 – 2.5 hours</span>
+        <span>💳 Cost of the required path: ~$0–12 / month of student credit</span>
+        <span>🔐 Secrets never leave your machine</span>
+      </div>
+      <div class="note danger" style="margin-top:16px">
+        <span aria-hidden="true">🔐</span>
+        <div><b>Golden rule before you start</b>
+        Never paste keys, connection strings, client secrets or the Static Web Apps deployment token into chat, screenshots, Git, or this guide. The <code>.gitignore</code> in the repo already blocks <code>.env*</code>, <code>local.settings.json</code>, <code>*.key</code> and <code>azure-credentials.json</code>. Secrets go into files on your machine — only the <b>non-secret names and endpoints</b> get shared.</div>
+      </div>
+    </div>
+
+    <!-- ---------------- 0 ---------------- -->
+    <section id="before" data-section>
+      <h2><span class="chip">Step 0</span> Before you start</h2>
+      <p class="lead">Ten minutes of checking now prevents a rebuild later — especially the region choice, because Cosmos DB, Service Bus, Functions and email are not available in every region.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 0.1 done" />
+          <div><div class="step-title"><span class="num">0.1</span> Confirm your subscription</div></div>
+          <span class="time">2 min</span>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>Portal → <b>Subscriptions</b>. You want <b>Azure for Students</b> (or pay-as-you-go) in <b>Active</b> state.</li>
+            <li>Note the <b>Subscription ID</b> and the <b>Offer type</b> — the free-tier toggle for Cosmos depends on the offer.</li>
+            <li>Check the remaining credit balance. Azure for Students gives a fixed credit and <b>does not auto-charge</b> a card — when credit ends, resources stop.</li>
+          </ul>
+          <div class="collect">
+            <span class="safe">✔ Collect: Subscription ID</span>
+            <span class="safe">✔ Collect: subscription name / offer type</span>
+          </div>
+          <pre><button class="copy" type="button">Copy</button><code>az login
+az account show --query "{id:id, name:name, offer:user.assignedTo}" -o json
+az account list -o table</code></pre>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 0.2 done" />
+          <div><div class="step-title"><span class="num">0.2</span> Pick ONE region and stick to it</div></div>
+          <span class="time">2 min</span>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>Recommended: <b>East US</b> or <b>Central India</b> — broadly available for Cosmos, Service Bus, Functions and email.</li>
+            <li>Everything (resource group, Cosmos, Service Bus, Functions, Insights) goes in the <b>same region</b>: fewer latency surprises, simpler quota maths.</li>
+            <li>Communication Services email has its own <b>data location</b> setting (separate from region) — decided in step 8.</li>
+          </ul>
+          <div class="collect"><span class="safe">✔ Collect: chosen region code (e.g. eastus)</span></div>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 0.3 done" />
+          <div><div class="step-title"><span class="num">0.3</span> Install the CLI (faster than clicking) </div></div>
+          <span class="time">5 min</span>
+        </div>
+        <div class="step-body">
+          <p>You can do every step in the portal instead — the CLI is only to save time.</p>
+          <pre><button class="copy" type="button">Copy</button><code># macOS
+brew install azure-cli
+az version
+
+# Azure Functions Core Tools (needed later to run the API locally)
+brew tap azure/functions &amp;&amp; brew install azure-functions-core-tools@4</code></pre>
+          <div class="note info"><span aria-hidden="true">ℹ️</span><div>Only the Azure CLI and a browser are required <b>tonight</b>. The Functions tools are needed when we write and deploy the API.</div></div>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 0.4 done" />
+          <div><div class="step-title"><span class="num">0.4</span> Set a budget alert (do not skip)</div></div>
+          <span class="time">3 min</span>
+        </div>
+        <div class="step-body">
+          <p>Portal → <b>Cost Management + Billing → Budgets → Add</b>. A budget alert <b>notifies</b>, it does not stop spending — so pick a small amount.</p>
+          <pre><button class="copy" type="button">Copy</button><code>SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+az consumption budget create \
+  --budget-name budget-support-dev \
+  --amount 10 --category Cost \
+  --time-grain Monthly \
+  --start-date $(date +%Y-%m-01) \
+  --end-date 2027-12-31</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 1 ---------------- -->
+    <section id="rg" data-section>
+      <h2><span class="chip">Step 1</span> Resource group</h2>
+      <p class="lead">The container for every resource. One group keeps cleanup safe: deleting it removes everything at the end of the semester.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 1 done" />
+          <div><div class="step-title"><span class="num">1.1</span> Create <code>rg-support-platform-dev</code></div></div>
+          <span class="time">2 min</span>
+        </div>
+        <div class="step-body">
+          <p>Portal → <b>Resource groups → Create</b> → name <code>rg-support-platform-dev</code>, your subscription, your region, tags <code>project=customer-support</code> and <code>environment=dev</code>.</p>
+          <pre><button class="copy" type="button">Copy</button><code>RG=rg-support-platform-dev
+LOC=eastus
+az group create -n $RG -l $LOC --tags project=customer-support environment=dev</code></pre>
+          <div class="collect">
+            <span class="safe">✔ Collect: resource group name</span>
+            <span class="safe">✔ Collect: region</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 2 ---------------- -->
+    <section id="cosmos" data-section>
+      <h2><span class="chip">Step 2</span> Cosmos DB — the ticket database</h2>
+      <p class="lead">One account, one database, four containers. This is where tickets, messages, audit entries and idempotency records live.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 2.1 done" />
+          <div><div class="step-title"><span class="num">2.1</span> Create the Cosmos DB account (NoSQL / Core SQL API)</div></div>
+          <span class="time">10–15 min</span>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>Portal → <b>Azure Cosmos DB → Create → Azure Cosmos DB for NoSQL</b>.</li>
+            <li><b>Capacity mode:</b> try the <b>Free tier discount</b> toggle. If your offer does not allow it, choose <b>Serverless</b> — cheapest for a project with bursty, low traffic. (Provisioned 400 RU/s costs roughly $24/month and will eat student credit.)</li>
+            <li><b>Consistency:</b> Session. <b>Geo-redundancy:</b> off. <b>Backup:</b> periodic default.</li>
+            <li>Name must be globally unique and lowercase: <code>cosmos-support-dev-&lt;yourinitials&gt;</code>.</li>
+          </ul>
+          <pre><button class="copy" type="button">Copy</button><code># Serverless variant (recommended if free tier is unavailable)
+az cosmosdb create -n cosmos-support-dev-mg -g $RG \
+  --locations regionName=$LOC failoverPriority=0 isZoneRedundant=false \
+  --default-consistency-level Session \
+  --capabilities EnableServerless
+
+# Free-tier variant (only if your offer supports it)
+# add: --enable-free-tier true</code></pre>
+          <div class="collect">
+            <span class="safe">✔ Collect: Cosmos account name</span>
+            <span class="safe">✔ Collect: account endpoint URI (https://…documents.azure.com:443/)</span>
+          </div>
+          <pre><button class="copy" type="button">Copy</button><code>az cosmosdb show -n cosmos-support-dev-mg -g $RG \
+  --query "{name:name, endpoint:documentEndpoint}" -o json</code></pre>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 2.2 done" />
+          <div><div class="step-title"><span class="num">2.2</span> Create database <code>supportplatform</code> and four containers</div></div>
+          <span class="time">8 min</span>
+        </div>
+        <div class="step-body">
+          <p>Partition keys must be chosen before data exists — these match the field names the UI already sends:</p>
+          <div class="table-scroll">
+          <table>
+            <thead><tr><th>Container</th><th>Partition key</th><th>Holds</th></tr></thead>
+            <tbody>
+              <tr><td class="k">tickets</td><td class="k">/customerId</td><td>Ticket documents (status, priority, assignment, timestamps)</td></tr>
+              <tr><td class="k">messages</td><td class="k">/ticketId</td><td>Conversation messages for a ticket</td></tr>
+              <tr><td class="k">audit</td><td class="k">/tenantId</td><td>Who changed what, when (needed for disputes &amp; later multi-tenant work)</td></tr>
+              <tr><td class="k">idempotency</td><td class="k">/id</td><td>Request-key → response cache so retries never duplicate tickets (set TTL on)</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <pre><button class="copy" type="button">Copy</button><code>ACC=cosmos-support-dev-mg
+az cosmosdb sql database create -a $ACC -g $RG -n supportplatform
+
+az cosmosdb sql container create -a $ACC -g $RG -d supportplatform -n tickets     -p /customerId
+az cosmosdb sql container create -a $ACC -g $RG -d supportplatform -n messages    -p /ticketId
+az cosmosdb sql container create -a $ACC -g $RG -d supportplatform -n audit       -p /tenantId
+az cosmosdb sql container create -a $ACC -g $RG -d supportplatform -n idempotency -p /id \
+  --ttl 86400</code></pre>
+          <div class="note warn"><span aria-hidden="true">⚠️</span><div><b>Do not collect the Cosmos key.</b> We will use managed identity (step 5), so the endpoint plus names is all that is needed. If managed identity is not possible for local development, you can keep the key in <code>local.settings.json</code> on your machine — never send it.</div></div>
+          <div class="collect">
+            <span class="fixed">= Database name: supportplatform</span>
+            <span class="fixed">= Containers: tickets, messages, audit, idempotency</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 3 ---------------- -->
+    <section id="bus" data-section>
+      <h2><span class="chip">Step 3</span> Service Bus — automatic routing queue</h2>
+      <p class="lead">Ticket creation publishes a message here; a queue-triggered function consumes it and assigns the team. Creating the queue alone is not the feature — the function is.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 3.1 done" />
+          <div><div class="step-title"><span class="num">3.1</span> Create namespace + queue <code>ticket-routing</code></div></div>
+          <span class="time">6 min</span>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>Namespace name: <code>sb-support-dev-&lt;yourinitials&gt;</code> (globally unique).</li>
+            <li><b>Pricing tier:</b> <b>Basic</b> is the cheapest and works if we implement duplicate-safety in the function (the roadmap requires idempotent processing anyway). <b>Standard</b> (≈ $10/month) adds built-in duplicate detection — pick Standard only if you want that native feature.</li>
+            <li>Queue settings: max delivery count 10, dead-lettering on message expiration on, duplicate detection 10 min (Standard tier only).</li>
+          </ul>
+          <pre><button class="copy" type="button">Copy</button><code>SB=sb-support-dev-mg
+az servicebus namespace create -n $SB -g $RG --sku Basic
+
+az servicebus queue create -n ticket-routing \
+  --namespace-name $SB -g $RG \
+  --max-delivery-count 10 --enable-dead-lettering-on-message-expiration true
+
+# Standard tier only:
+# --enable-duplicate-detection true --duplicate-detection-history-time-window PT10M</code></pre>
+          <div class="collect">
+            <span class="safe">✔ Collect: namespace name</span>
+            <span class="safe">✔ Collect: fully-qualified namespace (sb-support-dev-mg.servicebus.windows.net)</span>
+            <span class="safe">✔ Collect: queue name (ticket-routing)</span>
+            <span class="secret">✖ Do NOT send: connection string</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 4 ---------------- -->
+    <section id="func" data-section>
+      <h2><span class="chip">Step 4</span> Function App + Application Insights</h2>
+      <p class="lead">The API and the queue processor run here. Application Insights is created along with it and gives the monitoring evidence the roadmap asks for (FR-09).</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 4.1 done" />
+          <div><div class="step-title"><span class="num">4.1</span> Create a storage account for the Functions runtime</div></div>
+          <span class="time">3 min</span>
+        </div>
+        <div class="step-body">
+          <p>Name must be globally unique, 3–24 lowercase letters/digits: <code>stsupportdev&lt;initials&gt;</code>.</p>
+          <pre><button class="copy" type="button">Copy</button><code>ST=stsupportdevmg
+az storage account create -n $ST -g $RG -l $LOC --sku Standard_LRS --kind StorageV2</code></pre>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 4.2 done" />
+          <div><div class="step-title"><span class="num">4.2</span> Create the Function App (Node, Consumption, Linux)</div></div>
+          <span class="time">5 min</span>
+        </div>
+        <div class="step-body">
+          <p>Portal equivalent: <b>Function App → Create</b> → Consumption plan → runtime stack <b>Node.js 20</b> (or 22 if offered) → Linux → same region → new App Insights.</p>
+          <pre><button class="copy" type="button">Copy</button><code>FN=func-support-dev-mg
+az functionapp create -n $FN -g $RG \
+  --consumption-plan-location $LOC \
+  --runtime node --runtime-version 20 --functions-version 4 \
+  --os-type Linux \
+  --storage-account $ST</code></pre>
+          <div class="collect">
+            <span class="safe">✔ Collect: function app name</span>
+            <span class="safe">✔ Collect: default hostname (func-support-dev-mg.azurewebsites.net)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 4.3 done" />
+          <div><div class="step-title"><span class="num">4.3</span> Application Insights — note the name, keep the connection string local</div></div>
+          <span class="time">3 min</span>
+        </div>
+        <div class="step-body">
+          <pre><button class="copy" type="button">Copy</button><code>az monitor app-insights component create \
+  --app appi-support-dev-mg -g $RG -l $LOC \
+  --application-type web
+
+az monitor app-insights component show --app appi-support-dev-mg -g $RG \
+  --query "{name:name, appId:appId}" -o json</code></pre>
+          <div class="note warn"><span aria-hidden="true">⚠️</span><div><b>The connection string is a write-only ingestion key.</b> It is safe-ish to run with, but it still belongs in <code>local.settings.json</code>, not in chat. If Application Insights was created through the Function App, it already exists — just record its name.</div></div>
+          <div class="collect">
+            <span class="safe">✔ Collect: App Insights resource name</span>
+            <span class="secret">✖ Keep local: connection string</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 5 ---------------- -->
+    <section id="identity" data-section>
+      <h2><span class="chip">Step 5</span> Managed identity + role assignments</h2>
+      <p class="lead">This is the step that lets the whole system run with <b>no keys anywhere</b>. Do it now — retrofitting identity later is what forces connection strings into code.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 5.1 done" />
+          <div><div class="step-title"><span class="num">5.1</span> Turn on the Function App's system-assigned identity</div></div>
+          <span class="time">2 min</span>
+        </div>
+        <div class="step-body">
+          <p>Portal → Function App → <b>Identity → System assigned → On</b>. The CLI returns the identity's principal ID.</p>
+          <pre><button class="copy" type="button">Copy</button><code>az functionapp identity assign -n $FN -g $RG
+PRINCIPAL_ID=$(az functionapp identity show -n $FN -g $RG --query principalId -o tsv)
+echo $PRINCIPAL_ID</code></pre>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 5.2 done" />
+          <div><div class="step-title"><span class="num">5.2</span> Grant it least-privilege access to Cosmos, Service Bus and Insights</div></div>
+          <span class="time">6 min</span>
+        </div>
+        <div class="step-body">
+          <pre><button class="copy" type="button">Copy</button><code># Cosmos DB — data plane (Data Contributor)
+az cosmosdb sql role assignment create \
+  --account-name $ACC -g $RG --scope "/" \
+  --role-definition-id 00000000-0000-0000-0000-000000000002 \
+  --principal-id $PRINCIPAL_ID
+
+# Service Bus — send + receive on the namespace
+SB_ID=$(az servicebus namespace show -n $SB -g $RG --query id -o tsv)
+az role assignment create --assignee $PRINCIPAL_ID \
+  --role "Azure Service Bus Data Owner" --scope $SB_ID
+
+# Application Insights — publish telemetry
+AI_ID=$(az monitor app-insights component show --app appi-support-dev-mg -g $RG --query id -o tsv)
+az role assignment create --assignee $PRINCIPAL_ID \
+  --role "Monitoring Metrics Publisher" --scope $AI_ID</code></pre>
+          <div class="note ok"><span aria-hidden="true">✅</span><div><b>Also grant yourself the same roles.</b> Then local development works with <code>az login</code> + <code>DefaultAzureCredential</code> — you never handle a Cosmos key, and there is nothing secret to send me.</div></div>
+          <pre><button class="copy" type="button">Copy</button><code>MY_ID=$(az ad signed-in-user show --query id -o tsv)
+az cosmosdb sql role assignment create --account-name $ACC -g $RG --scope "/" \
+  --role-definition-id 00000000-0000-0000-0000-000000000002 --principal-id $MY_ID
+az role assignment create --assignee $MY_ID --role "Azure Service Bus Data Owner" --scope $SB_ID</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 6 ---------------- -->
+    <section id="swa" data-section>
+      <h2><span class="chip">Step 6</span> Static Web App — hosting the interface</h2>
+      <p class="lead">The React portal is already built; this is where it gets deployed. Free plan is enough and includes HTTPS plus Easy Auth.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 6.1 done" />
+          <div><div class="step-title"><span class="num">6.1</span> Create the Static Web App (Free plan)</div></div>
+          <span class="time">5 min</span>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>Portal → <b>Static Web Apps → Create</b> → plan <b>Free</b>.</li>
+            <li>Source: <b>GitHub</b> → repository <code>manideep2005/ticket</code> → branch <code>main</code>. Build presets: <b>React</b>; app location <code>/</code>; output location <code>dist</code>; API location leave empty (the API is a separate Function App).</li>
+            <li>If the repo is still empty, choose <b>Other / Custom</b> instead — we deploy with the CLI later using the deployment token.</li>
+          </ul>
+          <div class="collect">
+            <span class="safe">✔ Collect: Static Web App name</span>
+            <span class="safe">✔ Collect: default URL (https://…azurestaticapps.net)</span>
+            <span class="secret">✖ Do NOT send: deployment token</span>
+          </div>
+          <pre><button class="copy" type="button">Copy</button><code># Keep the deployment token on your machine only:
+az staticwebapp secrets list --name swa-support-dev-mg -g $RG \
+  --query properties.apiKey -o tsv &gt; ~/.swa-token   # never commit or send this
+chmod 600 ~/.swa-token</code></pre>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 6.2 done" />
+          <div><div class="step-title"><span class="num">6.2</span> Enable Microsoft sign-in on the Static Web App</div></div>
+          <span class="time">4 min</span>
+        </div>
+        <div class="step-body">
+          <p>Portal → Static Web App → <b>Settings → Authentication → Add identity provider → Microsoft</b>. Azure creates the Entra app registration for you (visible in Entra ID as <em>Azure Static Web Apps (&lt;name&gt;)</em>). Keep the default provider = none.</p>
+          <div class="note info"><span aria-hidden="true">ℹ️</span><div>This gives <code>/.auth/login/aad</code>, <code>/.auth/me</code> and <code>/.auth/logout</code> — exactly what the interface already calls. You do <b>not</b> create a client secret for this flow.</div></div>
+          <div class="collect"><span class="safe">✔ Confirmation: "Microsoft" provider added, no client secret needed</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 7 ---------------- -->
+    <section id="entra" data-section>
+      <h2><span class="chip">Step 7</span> Entra ID — accounts, roles, app registration</h2>
+      <p class="lead">Two separate concerns: who signs in to the portal (handled in 6.2) and how the API verifies identity. This step collects the IDs the backend needs — and no secrets.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 7.1 done" />
+          <div><div class="step-title"><span class="num">7.1</span> Record your tenant details</div></div>
+          <span class="time">2 min</span>
+        </div>
+        <div class="step-body">
+          <pre><button class="copy" type="button">Copy</button><code>az account show --query "{tenantId:tenantId, tenant:tenantDisplayName}" -o json
+az rest --method GET --url "https://graph.microsoft.com/v1.0/organization" \
+  --query "value[0].{id:id, domain:verifiedDomains[0].name}" -o json</code></pre>
+          <div class="collect">
+            <span class="safe">✔ Collect: tenant ID (GUID)</span>
+            <span class="safe">✔ Collect: tenant domain (name.onmicrosoft.com or custom)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 7.2 done" />
+          <div><div class="step-title"><span class="num">7.2</span> Create the API app registration with scopes and roles</div></div>
+          <span class="time">10 min</span>
+        </div>
+        <div class="step-body">
+          <p>Portal → <b>Microsoft Entra ID → App registrations → New registration</b>: name <code>support-platform-api</code>, supported accounts = <em>Accounts in this organizational directory only</em> (for now). Then:</p>
+          <ul>
+            <li><b>Expose an API</b> → Application ID URI: <code>api://&lt;client-id&gt;</code>.</li>
+            <li>Add scopes: <code>tickets.read</code>, <code>tickets.write</code>, <code>tickets.admin</code>.</li>
+            <li><b>App roles</b> → create <code>Customer</code>, <code>Agent</code>, <code>Admin</code> (member type: Users/Groups).</li>
+            <li>Do <b>not</b> create a client secret yet. When the time comes (deployed backend calling other services) we use managed identity instead.</li>
+          </ul>
+          <pre><button class="copy" type="button">Copy</button><code>az ad app create --display-name support-platform-api
+# then in the portal: Expose an API → add scopes, and App roles → add Customer/Agent/Admin</code></pre>
+          <div class="collect">
+            <span class="safe">✔ Collect: API app registration client ID (application ID)</span>
+            <span class="safe">✔ Collect: Application ID URI (api://…)</span>
+            <span class="safe">✔ Collect: names of scopes and app roles created</span>
+            <span class="secret">✖ Do NOT create/send: client secret</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 7.3 done" />
+          <div><div class="step-title"><span class="num">7.3</span> Create one test account per role</div></div>
+          <span class="time">6 min</span>
+        </div>
+        <div class="step-body">
+          <p>Portal → <b>Microsoft Entra ID → Users → New user</b> → create user: <code>agent1@&lt;yourdomain&gt;</code> and <code>admin1@&lt;yourdomain&gt;</code> (plus your own account as customer). Assign roles: <b>Enterprise applications → support-platform-api → Users and groups</b>.</p>
+          <div class="note warn"><span aria-hidden="true">⚠️</span><div>These are real directory accounts. Use a strong generated password, and <b>do not</b> use these credentials as the application's authentication mechanism — the app always signs you in through Entra, never against a hardcoded password (roadmap FR-07).</div></div>
+          <div class="collect">
+            <span class="safe">✔ Collect: list of test account email addresses (no passwords)</span>
+            <span class="safe">✔ Collect: which role each account was assigned</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 7.4 done" />
+          <div><div class="step-title"><span class="num">7.4</span> Protect your administrators (5 minutes that matter)</div></div>
+          <span class="time">5 min</span>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>Ensure at least one <b>break-glass</b> admin account exists with a documented long password and no MFA dependency.</li>
+            <li>Require <b>MFA</b> for administrators (Entra ID Free tier supports security defaults / per-user MFA).</li>
+            <li>Never use a personal Microsoft account as an app owner.</li>
+          </ul>
+          <div class="collect"><span class="safe">✔ Confirmation: MFA enabled for the accounts that can change Azure resources</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 8 ---------------- -->
+    <section id="email" data-section>
+      <h2><span class="chip">Step 8</span> Email notifications (Azure Communication Services)</h2>
+      <p class="lead">Ticket created / assigned / resolved notifications. This step can be skipped tonight without blocking anything — email is Phase 7 of the roadmap and the app runs without it.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 8.1 done" />
+          <div><div class="step-title"><span class="num">8.1</span> Create the ACS resource and an Email Communication Service</div></div>
+          <span class="time">10 min</span>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>Portal → <b>Communication Services → Create</b> → name <code>acs-support-dev</code>, pick a <b>data location</b> (United States / Europe / Asia Pacific — this is separate from your Azure region and cannot be changed later).</li>
+            <li>Then → <b>Email → Email Communication Services → Create</b> → same data location.</li>
+            <li><b>Domains → Add domain → Azure Managed Domain.</b> This gives you a free sending domain (<code>xxxxx.azurecomm.net</code>) for testing without owning DNS.</li>
+            <li>Wait for domain status to become <b>Verified / Ready</b>, then <b>Connect</b> the domain to the ACS resource.</li>
+          </ul>
+          <div class="collect">
+            <span class="safe">✔ Collect: ACS resource name</span>
+            <span class="safe">✔ Collect: sender address (DoNotReply@&lt;xxxxx&gt;.azurecomm.net)</span>
+            <span class="safe">✔ Collect: chosen email data location</span>
+            <span class="secret">✖ Do NOT send: ACS connection string</span>
+          </div>
+          <div class="note info"><span aria-hidden="true">ℹ️</span><div>A custom domain (e.g. <code>support@yourdomain.com</code>) needs DNS records (SPF, DKIM, domain verification). Do that later; the managed domain is enough to prove a real email was delivered.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 9 ---------------- -->
+    <section id="cost" data-section>
+      <h2><span class="chip">Step 9</span> Cost, quota and cleanup check</h2>
+      <p class="lead">Do this before you log off tonight — it is the difference between a working project in three weeks and a suspended subscription.</p>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 9.1 done" />
+          <div><div class="step-title"><span class="num">9.1</span> List what exists and what it will cost</div></div>
+          <span class="time">5 min</span>
+        </div>
+        <div class="step-body">
+          <pre><button class="copy" type="button">Copy</button><code>az resource list -g $RG -o table
+az consumption usage list --top 20 -o table</code></pre>
+          <div class="table-scroll">
+          <table>
+            <thead><tr><th>Service</th><th>Expected cost</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>Static Web Apps</td><td><span class="pill safe">Free</span></td><td>Free plan covers this project</td></tr>
+              <tr><td>Functions</td><td><span class="pill safe">~Free</span></td><td>1M executions/month free on Consumption</td></tr>
+              <tr><td>Application Insights</td><td><span class="pill safe">~Free</span></td><td>5 GB/month ingestion free</td></tr>
+              <tr><td>Cosmos DB</td><td><span class="pill opt">$0 with free tier / serverless else</span></td><td>Biggest variable — serverless avoids idle RU/s charges</td></tr>
+              <tr><td>Service Bus</td><td><span class="pill opt">Basic ~$0.05/M ops</span></td><td>Standard tier is ≈ $10/month — only if you want native duplicate detection</td></tr>
+              <tr><td>ACS Email</td><td><span class="pill opt">Per email, cents</span></td><td>Managed domain is free to set up</td></tr>
+              <tr><td>Load Balancer</td><td><span class="pill safe">Not needed</span></td><td>Serverless scaling already distributes load — document the decision</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="step" data-step>
+        <div class="step-head">
+          <input type="checkbox" aria-label="Step 9.2 done" />
+          <div><div class="step-title"><span class="num">9.2</span> Check regional support and quota</div></div>
+          <span class="time">3 min</span>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>If any resource failed to create, the region likely does not support it — check the error, and if needed recreate that one resource in a supported region.</li>
+            <li>Cosmos: free tier is one per subscription; serverless has a per-container limit but is plenty here.</li>
+            <li>Note the exact region for every resource — this goes in the submission document.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- 10 ---------------- -->
+    <section id="handover" data-section>
+      <h2><span class="chip">Step 10</span> Hand over the values</h2>
+      <p class="lead">Two lists: what to tell me (safe, non-secret), and what stays in a file on your machine (secrets). The recommended path needs <b>zero secrets</b>.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>✅ Safe to share — just tell me these</h3>
+          <ul>
+            <li>Subscription ID + subscription name/offer</li>
+            <li>Region</li>
+            <li>Resource group name</li>
+            <li>Cosmos account name + endpoint URI</li>
+            <li>Cosmos database + container names</li>
+            <li>Service Bus namespace + FQDN + queue name</li>
+            <li>Function App name + hostname</li>
+            <li>App Insights resource name</li>
+            <li>Static Web App name + URL</li>
+            <li>Entra tenant ID + tenant domain</li>
+            <li>API app registration client ID + <code>api://</code> URI + scope/role names</li>
+            <li>Test account emails + their assigned roles (no passwords)</li>
+            <li>ACS sender address + data location (if created)</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>🔐 Never share — keep locally</h3>
+          <ul>
+            <li>Cosmos DB primary/secondary key <em>(not needed with managed identity)</em></li>
+            <li>Service Bus connection string <em>(not needed with managed identity)</em></li>
+            <li>ACS connection string</li>
+            <li>Application Insights connection string</li>
+            <li>Static Web Apps deployment token</li>
+            <li>Any Entra client secret / certificate private key</li>
+            <li>Storage account access keys</li>
+            <li>Account passwords and MFA codes</li>
+          </ul>
+          <div class="note danger" style="margin-top:10px"><span aria-hidden="true">🔐</span><div>Put these into <code>local.settings.json</code> (already git-ignored) or Azure app settings / Key Vault. If I ever need a value to <em>exist</em>, you will add it yourself — I never need to read it.</div></div>
+        </div>
+      </div>
+
+      <h3 style="margin:22px 0 8px;font-size:15.5px">Fill this file on your machine</h3>
+      <p class="lead">Copy <code>local.settings.example.json</code> → <code>local.settings.json</code> in the project root and fill the <em>&lt;PLACEHOLDER&gt;</em> values. Reproduced here so you can work offline:</p>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Key</th><th>Value / source</th><th>Share</th></tr></thead>
+        <tbody>
+          <tr><td class="k">AZURE_TENANT_ID</td><td>Entra tenant GUID (step 7.1)</td><td><span class="pill safe">safe</span></td></tr>
+          <tr><td class="k">API_AUDIENCE</td><td><code>api://&lt;api-client-id&gt;</code> (step 7.2)</td><td><span class="pill safe">safe</span></td></tr>
+          <tr><td class="k">COSMOS_ACCOUNT_ENDPOINT</td><td>Cosmos endpoint URI (step 2.1)</td><td><span class="pill safe">safe</span></td></tr>
+          <tr><td class="k">COSMOS_DATABASE_NAME</td><td><code>supportplatform</code></td><td><span class="pill fixed">fixed</span></td></tr>
+          <tr><td class="k">COSMOS_TICKETS_CONTAINER</td><td><code>tickets</code></td><td><span class="pill fixed">fixed</span></td></tr>
+          <tr><td class="k">COSMOS_MESSAGES_CONTAINER</td><td><code>messages</code></td><td><span class="pill fixed">fixed</span></td></tr>
+          <tr><td class="k">COSMOS_AUDIT_CONTAINER</td><td><code>audit</code></td><td><span class="pill fixed">fixed</span></td></tr>
+          <tr><td class="k">SERVICE_BUS_NAMESPACE</td><td><code>&lt;namespace&gt;.servicebus.windows.net</code></td><td><span class="pill safe">safe</span></td></tr>
+          <tr><td class="k">SERVICE_BUS_ROUTING_QUEUE</td><td><code>ticket-routing</code></td><td><span class="pill fixed">fixed</span></td></tr>
+          <tr><td class="k">ACS_EMAIL_SENDER</td><td>Managed-domain sender (step 8)</td><td><span class="pill safe">safe</span></td></tr>
+          <tr><td class="k">APPLICATIONINSIGHTS_CONNECTION_STRING</td><td>App Insights (step 4.3)</td><td><span class="pill secret">local only</span></td></tr>
+          <tr><td class="k">COSMOS_KEY</td><td>only if managed identity is impossible</td><td><span class="pill secret">local only</span></td></tr>
+          <tr><td class="k">SERVICE_BUS_CONNECTION_STRING</td><td>only if managed identity is impossible</td><td><span class="pill secret">local only</span></td></tr>
+          <tr><td class="k">ACS_CONNECTION_STRING</td><td>if sending email today</td><td><span class="pill secret">local only</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="final" style="margin-top:24px">
+        <h2>When you are done tonight</h2>
+        <p style="color:#c3cadd;font-size:14.5px;margin:8px 0 14px">Send me just two things:</p>
+        <p style="color:#e7eaf3;font-size:14.5px;margin:0">
+          <b>1.</b> The safe list above (copy-paste the values, not screenshots of secrets).<br />
+          <b>2.</b> A confirmation that you ran <code style="background:#232a44;color:#e7eaf3">az login</code> and granted yourself the Cosmos / Service Bus roles from step 5.2 — that means the backend can be developed with <b>no keys at all</b>.
+        </p>
+        <p style="color:#c3cadd;font-size:14px;margin-top:14px">
+          Then I can build the Azure Functions API (tickets CRUD, Service Bus routing function, reports), wire it to the interface that is already finished, and deploy. Email and the multi-tenant API features come after that — see <a href="API-FIRST-PLATFORM.md">docs/API-FIRST-PLATFORM.md</a>.
+        </p>
+      </div>
+
+      <div class="note info" style="margin-top:20px">
+        <span aria-hidden="true">🖨️</span>
+        <div><b>Working through it offline?</b> Use your browser's Print → “Save as PDF”. Your checkbox progress stays in this browser between visits.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  var STORE = "supporthub.azureGuide.v1";
+  var steps = Array.prototype.slice.call(document.querySelectorAll("[data-step]"));
+  var sections = Array.prototype.slice.call(document.querySelectorAll("[data-section]"));
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORE) || "{}"); } catch (e) { return {}; }
+  }
+  function save(state) {
+    try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {}
+  }
+
+  var state = load();
+
+  steps.forEach(function (step, i) {
+    var box = step.querySelector('input[type="checkbox"]');
+    if (!box) return;
+    var id = "s" + i;
+    step.dataset.id = id;
+    box.checked = !!state[id];
+    step.classList.toggle("done", box.checked);
+    box.addEventListener("change", function () {
+      state[id] = box.checked;
+      if (!box.checked) delete state[id];
+      save(state);
+      step.classList.toggle("done", box.checked);
+      render();
+    });
+  });
+
+  function render() {
+    var done = steps.filter(function (s) {
+      return s.classList.contains("done");
+    }).length;
+    document.getElementById("doneCount").textContent = done;
+    document.getElementById("totalCount").textContent = steps.length;
+    document.getElementById("barFill").style.width =
+      steps.length ? (done / steps.length) * 100 + "%" : "0%";
+
+    sections.forEach(function (sec) {
+      var inSec = sec.querySelectorAll("[data-step]");
+      var d = sec.querySelectorAll("[data-step].done").length;
+      var link = document.querySelector('nav.toc a[href="#' + sec.id + '"]');
+      if (!link) return;
+      var st = link.querySelector(".st");
+      st.textContent = d === inSec.length ? "✓" : d + "/" + inSec.length;
+      link.classList.toggle("done", d === inSec.length && inSec.length > 0);
+    });
+  }
+
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    if (!confirm("Clear all ticked steps?")) return;
+    state = {};
+    save(state);
+    steps.forEach(function (s) {
+      s.classList.remove("done");
+      var b = s.querySelector('input[type="checkbox"]');
+      if (b) b.checked = false;
+    });
+    render();
+  });
+
+  // copy buttons
+  Array.prototype.slice.call(document.querySelectorAll(".copy")).forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var pre = btn.parentElement;
+      var text = pre.querySelector("code") ? pre.querySelector("code").innerText : pre.innerText;
+      var done = function () {
+        btn.textContent = "Copied";
+        btn.classList.add("ok");
+        setTimeout(function () {
+          btn.textContent = "Copy";
+          btn.classList.remove("ok");
+        }, 1600);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, done);
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+        done();
+      }
+    });
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

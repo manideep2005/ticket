@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+build/
+out/
+*.tsbuildinfo
+
+# Secrets and environment — NEVER commit these
+.env
+.env.*
+!.env.example
+local.settings.json
+*.local.settings.json
+secrets/
+*.pem
+*.pfx
+*.key
+*.publishsettings
+azure-credentials.json
+azure-values*.json
+service-principal.json
+
+# Logs / coverage
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+coverage/
+.nyc_output/
+
+# Local agent tooling metadata
+.freebuff/
+
+# Editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
