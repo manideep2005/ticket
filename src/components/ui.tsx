@@ -83,7 +83,7 @@ export function EmptyState({
 
 /**
  * Honest error state — never hides the cause. For connection problems it
- * explains that the Azure backend is not reachable rather than showing
+ * explains that the Google Cloud backend is not reachable rather than showing
  * fabricated data.
  */
 export function ErrorState({

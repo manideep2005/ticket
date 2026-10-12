@@ -1,13 +1,15 @@
 /**
- * Authentication for the portal, backed by real infrastructure:
- * Azure Static Web Apps Easy Auth (Microsoft Entra ID) via /.auth/*.
+ * Authentication for SupportHub, backed by Google Cloud Platform:
+ * Google Identity Services (Google OAuth 2.0 / OpenID Connect ID Tokens).
  *
- * The UI only *discovers* who it is talking to — every protected operation is
- * authorized again on the backend (FR-07: hiding a button is not security).
+ * The UI signs in via Google Identity Services and receives a cryptographically
+ * signed Google ID token (JWT). The token is sent via Authorization: Bearer <token>
+ * on every API request and verified on the GCP backend (Cloud Functions / Cloud Run)
+ * using the official google-auth-library.
  *
- * When Easy Auth is not configured (local dev, backend not deployed) the state
- * becomes "unavailable" and the app offers a clearly-labelled interface preview
- * that fetches nothing and shows no fabricated ticket data.
+ * When VITE_GOOGLE_CLIENT_ID is not configured (local dev, backend not deployed)
+ * the state becomes "unavailable" and the app offers a clearly-labelled interface
+ * preview mode that fetches nothing and shows no fabricated ticket data.
  */
 
 import {
@@ -21,6 +23,96 @@ import {
 } from "react";
 import type { AppRole, AuthState, AuthUser } from "./types";
 
+const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? "";
+const TOKEN_STORAGE_KEY = "supporthub_google_id_token";
+
+let currentToken: string | null = null;
+
+/** Synchronous token accessor for API client headers. */
+export function getAuthToken(): string | null {
+  if (currentToken) return currentToken;
+  try {
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredToken(token: string | null) {
+  currentToken = token;
+  try {
+    if (token) {
+      sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+    } else {
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+  } catch {
+    // Storage access may fail in private windows; currentToken persists in-memory
+  }
+}
+
+interface JwtPayload {
+  sub?: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+  exp?: number;
+  roles?: string[] | string;
+  role?: string;
+  [key: string]: unknown;
+}
+
+function parseJwt(token: string): JwtPayload | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
+    );
+    return JSON.parse(json) as JwtPayload;
+  } catch {
+    return null;
+  }
+}
+
+function resolveRoles(email: string, payload?: JwtPayload | null): AppRole[] {
+  const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS as string | undefined)
+    ?.split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean) ?? [];
+
+  const agentEmails = (import.meta.env.VITE_AGENT_EMAILS as string | undefined)
+    ?.split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean) ?? [];
+
+  const loweredEmail = email.toLowerCase();
+  if (adminEmails.includes(loweredEmail)) return ["admin"];
+  if (agentEmails.includes(loweredEmail)) return ["agent"];
+
+  const roleClaim = payload?.role ?? payload?.roles;
+  if (typeof roleClaim === "string") {
+    const r = roleClaim.toLowerCase();
+    if (r === "admin" || r === "agent" || r === "customer") return [r as AppRole];
+  } else if (Array.isArray(roleClaim)) {
+    const matched: AppRole[] = [];
+    for (const item of roleClaim) {
+      const lower = String(item).toLowerCase();
+      if (lower === "admin" || lower === "agent" || lower === "customer") {
+        matched.push(lower as AppRole);
+      }
+    }
+    if (matched.length > 0) return matched;
+  }
+
+  return ["customer"];
+}
+
 interface AuthContextValue {
   state: AuthState;
   /** Signed-in user, or null. Null also in preview mode. */
@@ -28,95 +120,142 @@ interface AuthContextValue {
   /** Effective role used for navigation. In preview mode the user picks it. */
   activeRole: AppRole | null;
   previewMode: boolean;
+  idToken: string | null;
+  googleClientId: string;
   signIn: () => void;
   signOut: () => void;
   enterPreviewMode: () => void;
   setPreviewRole: (role: AppRole) => void;
   hasRole: (...roles: AppRole[]) => boolean;
+  handleCredentialResponse: (credential: string) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-interface MePayload {
-  clientPrincipal?: {
-    userId?: string;
-    userDetails?: string;
-    userRoles?: string[];
-    claims?: { typ?: string; val?: string }[];
-  };
-}
-
-function mapRoles(principal: NonNullable<MePayload["clientPrincipal"]>): AppRole[] {
-  const raw = new Set<string>([...(principal.userRoles ?? [])]);
-  for (const claim of principal.claims ?? []) {
-    const typ = claim.typ ?? "";
-    if (typ.endsWith("/roles") || typ === "roles" || typ.endsWith("#roles")) {
-      for (const r of (claim.val ?? "").split(/[,\s]+/)) if (r) raw.add(r);
-    }
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: Record<string, unknown>) => void;
+          prompt: (callback?: (notification: unknown) => void) => void;
+          renderButton: (
+            parent: HTMLElement,
+            options: Record<string, unknown>,
+          ) => void;
+          disableAutoSelect: () => void;
+        };
+      };
+    };
   }
-  const lowered = [...raw].map((r) => r.toLowerCase());
-  const roles: AppRole[] = [];
-  if (lowered.includes("admin")) roles.push("admin");
-  if (lowered.includes("agent") || lowered.includes("supportagent"))
-    roles.push("agent");
-  if (roles.length === 0) roles.push("customer");
-  return roles;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "checking" });
+  const [token, setToken] = useState<string | null>(() => getAuthToken());
   const [previewMode, setPreviewMode] = useState(false);
   const [previewRole, setPreviewRole] = useState<AppRole>("customer");
 
-  const refresh = useCallback(async () => {
-    let res: Response;
-    try {
-      res = await fetch("/.auth/me", {
-        headers: { Accept: "application/json" },
-        credentials: "same-origin",
-      });
-    } catch {
-      setState({ status: "unavailable" });
-      return;
+  const authenticateFromToken = useCallback((idToken: string): boolean => {
+    const payload = parseJwt(idToken);
+    if (!payload || !payload.sub) {
+      setStoredToken(null);
+      setToken(null);
+      return false;
     }
-    // SPA dev servers answer unknown paths with index.html — that means Easy
-    // Auth is not configured, not that we are signed in.
-    const ct = res.headers.get("content-type") ?? "";
-    if (!res.ok || !ct.includes("application/json")) {
-      setState(res.status === 401 ? { status: "anonymous" } : { status: "unavailable" });
-      return;
+
+    // Check expiration
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      setStoredToken(null);
+      setToken(null);
+      return false;
     }
-    try {
-      const payload = (await res.json()) as MePayload | MePayload[];
-      const principal = Array.isArray(payload)
-        ? payload[0]?.clientPrincipal
-        : payload?.clientPrincipal;
-      if (!principal?.userId) {
-        setState({ status: "anonymous" });
-        return;
-      }
-      setState({
-        status: "authenticated",
-        user: {
-          userId: principal.userId,
-          email: principal.userDetails ?? "",
-          name:
-            principal.userDetails?.split("@")[0] ?? principal.userId.slice(0, 8),
-          roles: mapRoles(principal),
-        },
-      });
-    } catch {
-      setState({ status: "unavailable" });
-    }
+
+    const email = payload.email ?? "";
+    const name = payload.name ?? email.split("@")[0] ?? payload.sub.slice(0, 8);
+    const roles = resolveRoles(email, payload);
+
+    setStoredToken(idToken);
+    setToken(idToken);
+    setState({
+      status: "authenticated",
+      user: {
+        userId: payload.sub,
+        email,
+        name,
+        roles,
+        avatarUrl: payload.picture,
+      },
+    });
+    return true;
   }, []);
 
+  const handleCredentialResponse = useCallback(
+    (credential: string) => {
+      const ok = authenticateFromToken(credential);
+      if (!ok) {
+        setState({ status: "anonymous" });
+      }
+    },
+    [authenticateFromToken],
+  );
+
+  // Initialize or check stored session
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (!GOOGLE_CLIENT_ID) {
+      setState({ status: "unavailable" });
+      return;
+    }
+
+    const existingToken = getAuthToken();
+    if (existingToken) {
+      const ok = authenticateFromToken(existingToken);
+      if (ok) return;
+    }
+
+    setState({ status: "anonymous" });
+  }, [authenticateFromToken]);
+
+  // Initialize Google Identity Services SDK when available
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || typeof window === "undefined") return;
+
+    function setupGsi() {
+      if (!window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (res: { credential?: string }) => {
+          if (res.credential) {
+            handleCredentialResponse(res.credential);
+          }
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+    }
+
+    if (window.google?.accounts?.id) {
+      setupGsi();
+    } else {
+      // Check every 300ms until GIS script completes loading
+      const interval = setInterval(() => {
+        if (window.google?.accounts?.id) {
+          setupGsi();
+          clearInterval(interval);
+        }
+      }, 300);
+      return () => clearInterval(interval);
+    }
+  }, [handleCredentialResponse]);
 
   const signIn = useCallback(() => {
-    const redirect = `${window.location.pathname}${window.location.search}`;
-    window.location.href = `/.auth/login/aad?redirect_url=${encodeURIComponent(redirect)}`;
+    if (!GOOGLE_CLIENT_ID) {
+      setState({ status: "unavailable" });
+      return;
+    }
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.prompt();
+    }
   }, []);
 
   const signOut = useCallback(() => {
@@ -125,7 +264,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPreviewRole("customer");
       return;
     }
-    window.location.href = `/.auth/logout?redirect_url=${encodeURIComponent("/")}`;
+    setStoredToken(null);
+    setToken(null);
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.disableAutoSelect();
+    }
+    setState({ status: "anonymous" });
   }, [previewMode]);
 
   const enterPreviewMode = useCallback(() => setPreviewMode(true), []);
@@ -142,13 +286,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       activeRole,
       previewMode,
+      idToken: token,
+      googleClientId: GOOGLE_CLIENT_ID,
       signIn,
       signOut,
       enterPreviewMode,
       setPreviewRole,
       hasRole: (...roles) => (activeRole ? roles.includes(activeRole) : false),
+      handleCredentialResponse,
     };
-  }, [state, previewMode, previewRole, signIn, signOut, enterPreviewMode]);
+  }, [
+    state,
+    previewMode,
+    previewRole,
+    token,
+    signIn,
+    signOut,
+    enterPreviewMode,
+    handleCredentialResponse,
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

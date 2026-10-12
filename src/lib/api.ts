@@ -1,17 +1,17 @@
 /**
- * Typed API client for the Azure Functions backend.
+ * Typed API client for the Google Cloud backend (Cloud Functions / Cloud Run).
  *
  * This module performs REAL HTTP calls only — there is no mock/sample data
  * anywhere in this codebase (requirements core rule: "must not fake cloud
  * behavior"). When the backend is not deployed or not reachable the caller
  * receives a typed error and the UI renders an honest connection-error state.
  *
- * Auth: on Azure Static Web Apps the Easy Auth session cookie is sent
- * automatically with same-origin requests, and the backend additionally
- * validates the x-ms-client-principal header — the UI is never trusted for
- * authorization (FR-07).
+ * Auth: Sends the Google ID token in the standard `Authorization: Bearer <token>`
+ * header. The Google Cloud backend verifies the signature via Google's public
+ * keys (google-auth-library) — the UI is never trusted for authorization (FR-07).
  */
 
+import { getAuthToken } from "./auth";
 import type {
   CreateTicketRequest,
   ReportSummary,
@@ -22,7 +22,7 @@ import type {
   UpdateTicketRequest,
 } from "./types";
 
-/** Base URL for the Functions API. Empty string = same origin (Static Web Apps). */
+/** Base URL for the Google Cloud API. Empty string = same origin. */
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
 export type ApiErrorKind =
@@ -72,7 +72,7 @@ export function describeError(err: unknown): string {
       case "network":
         return "Cannot reach the support API. The backend may not be running or the network is offline.";
       case "not-found":
-        return "Support API endpoint not found. The Azure Functions backend is not deployed yet (or VITE_API_BASE_URL is wrong).";
+        return "Support API endpoint not found. The Google Cloud backend (Cloud Functions / Cloud Run) is not deployed yet (or VITE_API_BASE_URL is wrong).";
       case "unauthorized":
         return "You are not signed in. Sign in to continue.";
       case "forbidden":
@@ -106,8 +106,10 @@ interface RequestOptions {
 
 async function request<T>(path: string, init?: RequestOptions): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const token = getAuthToken();
   const headers: Record<string, string> = {
     Accept: "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(init?.headers ?? {}),
   };
   const hasBody = init?.body !== undefined;

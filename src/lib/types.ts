@@ -1,7 +1,7 @@
 /**
  * Domain types for the support platform.
  * These mirror the schemas defined in the requirements roadmap
- * (Cosmos DB ticket / message documents) and the Azure Functions API contract.
+ * (Firestore ticket / message documents) and the Google Cloud API contract.
  */
 
 export const TICKET_STATUSES = [
@@ -90,7 +90,7 @@ export interface TicketListParams {
 
 /**
  * GET /api/reports/summary response (FR-08).
- * All values must be computed server-side from stored Cosmos DB tickets.
+ * All values must be computed server-side from stored Firestore tickets.
  */
 export interface ReportSummary {
   windowDays: number;
@@ -116,7 +116,7 @@ export interface RoutingRule {
   description?: string;
 }
 
-/** Roles returned by Static Web Apps Easy Auth (/.auth/me). */
+/** Roles mapped from Google Identity / backend RBAC. */
 export type AppRole = "customer" | "agent" | "admin";
 
 export interface AuthUser {
@@ -124,6 +124,7 @@ export interface AuthUser {
   email: string;
   name: string;
   roles: AppRole[];
+  avatarUrl?: string;
 }
 
 export type AuthState =

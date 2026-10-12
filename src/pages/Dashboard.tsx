@@ -331,7 +331,7 @@ export function Dashboard() {
                 {isAgentLike ? (
                   <>
                     Aggregated server-side by <code>GET /api/reports/summary</code> from
-                    real Cosmos DB documents.
+                    real Google Cloud Firestore documents.
                   </>
                 ) : (
                   <>

@@ -6,8 +6,8 @@ import { Icon } from "../components/icons";
 
 /**
  * Admin view of the documented routing rule set (FR-05).
- * Shows the same category → team mapping that the queue-triggered
- * Azure Function applies to new tickets.
+ * Shows the same category → team mapping that the Pub/Sub-triggered
+ * Cloud Function applies to new tickets.
  */
 export function RoutingRules() {
   const { data, initialLoading, error, refetch } = useApi(
@@ -22,8 +22,8 @@ export function RoutingRules() {
         <div className="page-title-block">
           <h1 className="page-title">Automated routing rules</h1>
           <p className="page-subtitle">
-            The documented rule set the queue-triggered function applies when a{" "}
-            <code>TicketCreated</code> message arrives on Service Bus.
+            The documented rule set the event-triggered Cloud Function applies when a{" "}
+            <code>TicketCreated</code> message arrives on Cloud Pub/Sub.
           </p>
         </div>
         <div className="page-actions">
@@ -42,16 +42,16 @@ export function RoutingRules() {
           <div className="flex flex-wrap" style={{ gap: 14, fontSize: 13.4 }}>
             <span className="badge status-New">1 · API saves ticket</span>
             <Icon name="route" size={15} />
-            <span className="badge status-Queued">2 · Service Bus message</span>
+            <span className="badge status-Queued">2 · Cloud Pub/Sub message</span>
             <Icon name="route" size={15} />
-            <span className="badge status-InProgress">3 · Queue-triggered function</span>
+            <span className="badge status-InProgress">3 · Triggered Cloud Function</span>
             <Icon name="route" size={15} />
-            <span className="badge status-Assigned">4 · Team assigned in Cosmos DB</span>
+            <span className="badge status-Assigned">4 · Team assigned in Firestore</span>
           </div>
           <p className="muted small" style={{ marginTop: 12 }}>
-            Assignment and status are written back to the ticket document, so the API and
+            Assignment and status are written back to the ticket document in Firestore, so the API and
             UI immediately show who owns it. Duplicate deliveries are processed
-            idempotently; failures land in the dead-letter queue for inspection.
+            idempotently; dead-letter topics capture unhandled errors for inspection.
           </p>
         </div>
       </div>

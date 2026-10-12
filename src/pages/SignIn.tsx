@@ -1,15 +1,35 @@
+import { useEffect, useRef } from "react";
 import { useAuth } from "../lib/auth";
 import { Icon } from "../components/icons";
 import { Alert } from "../components/ui";
 
 /**
- * Sign-in screen. In production this redirects to Microsoft Entra ID through
- * Static Web Apps Easy Auth (/.auth/login/aad). It never accepts or stores a
- * password itself — hardcoded demo passwords are explicitly forbidden.
+ * Sign-in screen. Backed by Google Cloud Platform via Google Identity Services
+ * (OAuth 2.0 / OpenID Connect). It never accepts or stores a password itself —
+ * hardcoded demo passwords and credentials are explicitly forbidden.
  */
 export function SignIn() {
-  const { state, signIn, enterPreviewMode } = useAuth();
+  const { state, signIn, enterPreviewMode, googleClientId, handleCredentialResponse } =
+    useAuth();
+  const googleBtnRef = useRef<HTMLDivElement>(null);
   const authAvailable = state.status === "anonymous" || state.status === "authenticated";
+
+  // Automatically render Google's official branded sign-in button if GSI SDK is present
+  useEffect(() => {
+    if (!googleClientId || !googleBtnRef.current || !window.google?.accounts?.id) return;
+
+    try {
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: "filled_blue",
+        size: "large",
+        text: "continue_with",
+        shape: "rectangular",
+        width: 320,
+      });
+    } catch {
+      // Fallback button remains rendered below if GSI renderButton fails
+    }
+  }, [googleClientId, handleCredentialResponse, authAvailable]);
 
   return (
     <div className="auth-screen">
@@ -23,20 +43,20 @@ export function SignIn() {
           <h1>Cloud customer support, end to end.</h1>
           <p>
             Submit tickets, watch them get routed automatically to the right team, and
-            follow every reply — backed by real Azure services, not a mock.
+            follow every reply — backed by real Google Cloud services, not a mock.
           </p>
           <ul className="auth-points">
             <li>
               <span className="tick">✓</span>
-              Tickets stored durably in Azure Cosmos DB with UTC audit timestamps
+              Tickets stored durably in Google Cloud Firestore with UTC audit timestamps
             </li>
             <li>
               <span className="tick">✓</span>
-              Automated assignment via a Service Bus queue and a triggered Function
+              Automated assignment via a Cloud Pub/Sub topic and a triggered Cloud Function
             </li>
             <li>
               <span className="tick">✓</span>
-              Role-based access for customers, support agents and admins (Entra ID)
+              Role-based access for customers, support agents and admins (Google Identity)
             </li>
             <li>
               <span className="tick">✓</span>
@@ -46,8 +66,8 @@ export function SignIn() {
         </div>
 
         <p className="small" style={{ color: "#7b83a0" }}>
-          Built on Azure Static Web Apps · Functions · Cosmos DB · Service Bus ·
-          Application Insights
+          Built on Google Cloud Platform · Cloud Functions · Firestore · Cloud Pub/Sub ·
+          Cloud Logging &amp; Monitoring
         </p>
       </section>
 
@@ -59,7 +79,7 @@ export function SignIn() {
 
           <h2>Sign in</h2>
           <p className="auth-sub">
-            Use your work or school account to access the support portal.
+            Use your Google or Google Workspace account to access the support portal.
           </p>
 
           {state.status === "checking" && (
@@ -70,24 +90,36 @@ export function SignIn() {
 
           {authAvailable && (
             <>
+              {/* Official Google GSI button mount point */}
+              <div
+                ref={googleBtnRef}
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  minHeight: 40,
+                  marginBottom: 8,
+                }}
+              />
+
               <button className="btn btn-primary btn-block" onClick={signIn}>
-                <Icon name="shield" size={16} />
-                Continue with Microsoft
+                <Icon name="google" size={16} />
+                Continue with Google
               </button>
               <p className="auth-footnote">
-                Authentication is handled by Microsoft Entra ID via Azure Static Web Apps
-                Easy Auth. The backend re-checks your identity and role on every request —
-                the interface is never trusted for authorization.
+                Authentication is handled by Google Identity Services (OAuth 2.0 / OIDC).
+                The Google Cloud backend validates the cryptographic signature of your
+                ID token on every request — the interface is never trusted for
+                authorization.
               </p>
             </>
           )}
 
           {state.status === "unavailable" && (
             <>
-              <Alert tone="warning" title="Sign-in service not reachable">
-                Easy Auth was not detected at <code>/.auth/me</code>. This happens when
-                the app runs locally or before Azure Static Web Apps authentication is
-                configured. No credentials were attempted.
+              <Alert tone="warning" title="Google OAuth Client ID not configured">
+                Google Client ID was not detected in <code>VITE_GOOGLE_CLIENT_ID</code>.
+                Set your OAuth 2.0 Web Client ID in <code>.env.local</code> to connect to
+                your GCP project. No credentials were attempted.
               </Alert>
               <button className="btn btn-primary btn-block" onClick={enterPreviewMode}>
                 Preview the interface
@@ -96,14 +128,14 @@ export function SignIn() {
               <button
                 className="btn btn-block"
                 onClick={signIn}
-                title="Will fail until Easy Auth is configured on the Static Web App"
+                title="Will fail until VITE_GOOGLE_CLIENT_ID is configured in .env.local"
               >
-                Try Microsoft sign-in anyway
+                Try Google sign-in anyway
               </button>
               <p className="auth-footnote">
                 Preview mode shows the interface shell only — it does not simulate sign-in
                 and contains <strong>no fabricated ticket data</strong>. Every data screen
-                will report the backend as not connected until the Azure APIs are
+                will report the backend as not connected until the Google Cloud APIs are
                 deployed.
               </p>
             </>

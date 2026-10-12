@@ -149,9 +149,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="banner banner-warning">
             <span aria-hidden="true">🚧</span>
             <div>
-              <strong>UI preview — not connected to Azure.</strong>{" "}
-              Sign-in and live ticket data are unavailable until the Azure Static
-              Web Apps auth and Functions API are deployed. No ticket data is
+              <strong>UI preview — not connected to Google Cloud.</strong>{" "}
+              Sign-in and live ticket data are unavailable until the Google OAuth
+              client ID is configured and the backend API is deployed. No ticket data is
               simulated anywhere in this interface.
             </div>
           </div>

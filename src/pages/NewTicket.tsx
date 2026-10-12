@@ -93,8 +93,8 @@ export function NewTicket() {
           <div className="page-title-block">
             <h1 className="page-title">Ticket submitted</h1>
             <p className="page-subtitle">
-              Your request was stored in Cosmos DB and a routing message was published to
-              Service Bus.
+              Your request was stored in Cloud Firestore and a routing message was published to
+              Cloud Pub/Sub.
             </p>
           </div>
         </div>
@@ -254,8 +254,8 @@ export function NewTicket() {
 
             <div className="flex" style={{ justifyContent: "space-between" }}>
               <span className="muted small">
-                Submitting sends <code>POST /api/tickets</code> to the deployed Azure
-                Functions API — no data is simulated.
+                Submitting sends <code>POST /api/tickets</code> to the deployed Google
+                Cloud API — no data is simulated.
               </span>
               <div className="flex">
                 <button
