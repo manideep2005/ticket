@@ -4,7 +4,7 @@ import { requireAuth, requireRole, type AuthRequest } from "./auth.ts";
 import { store } from "./store.ts";
 import { ROUTING_RULES, processAutomatedRouting, getTeamCapacities, autoRebalanceCaseload } from "./routing.ts";
 import { analyzeTicketIntelligence } from "./intelligence.ts";
-import type { Category, Priority, ReportSummary, Ticket, TicketStatus } from "./types.ts";
+import type { Category, Priority, ReportSummary, Ticket, TicketStatus, UserProfile } from "./types.ts";
 
 export const apiRouter = Router();
 
@@ -437,4 +437,87 @@ apiRouter.get("/reports/summary", requireRole("agent", "admin"), (req: AuthReque
   };
 
   res.json(summary);
+});
+
+/** POST /api/users/register — called by frontend on every sign-in to auto-register customer */
+apiRouter.post("/users/register", (req: AuthRequest, res: Response) => {
+  const user = req.user!;
+  // Only register customers (agents/admins are managed manually)
+  if (user.role !== "customer") {
+    res.json({ ok: true, skipped: true });
+    return;
+  }
+  const profile = store.upsertRegisteredCustomer({
+    userId: user.userId,
+    email: user.email,
+    name: user.name,
+    avatarUrl: (req.body as { avatarUrl?: string })?.avatarUrl,
+  });
+  res.json(profile);
+});
+
+/** GET /api/users — Admin only: list agents + customers */
+apiRouter.get("/users", requireRole("admin"), (_req: AuthRequest, res: Response) => {
+  const agents = store.getAgents();
+  const customers = store.getRegisteredCustomers();
+
+  // Refresh ticket stats on agents from live ticket data
+  const allTickets = store.getTickets();
+  const enrichedAgents = agents.map((a) => {
+    const assigned = allTickets.filter((t) => t.assignedAgentId === a.userId);
+    const openTickets = assigned.filter((t) => t.status !== "Resolved" && t.status !== "Closed").length;
+    const resolvedTickets = assigned.filter((t) => t.status === "Resolved" || t.status === "Closed").length;
+    const lastTicket = assigned.sort((x, y) => y.updatedAtUtc.localeCompare(x.updatedAtUtc))[0];
+    return {
+      ...a,
+      totalTickets: assigned.length,
+      openTickets,
+      resolvedTickets,
+      lastActiveUtc: lastTicket?.updatedAtUtc ?? a.lastActiveUtc,
+    };
+  });
+
+  res.json({ agents: enrichedAgents, customers });
+});
+
+/** POST /api/users/agents — Admin only: manually add a support agent */
+apiRouter.post("/users/agents", requireRole("admin"), (req: AuthRequest, res: Response) => {
+  const { name, email, assignedTeam } = req.body as {
+    name?: string;
+    email?: string;
+    assignedTeam?: string;
+  };
+
+  if (!name || typeof name !== "string" || name.trim().length < 2) {
+    res.status(400).json({ error: "Agent name must be at least 2 characters." });
+    return;
+  }
+  if (!email || typeof email !== "string" || !email.includes("@")) {
+    res.status(400).json({ error: "A valid email address is required." });
+    return;
+  }
+
+  const agent = store.addAgent({
+    userId: `agent-${Date.now()}`,
+    email: email.trim().toLowerCase(),
+    name: name.trim(),
+    role: "agent",
+    assignedTeam: assignedTeam?.trim() || undefined,
+    joinedAtUtc: new Date().toISOString(),
+    totalTickets: 0,
+    openTickets: 0,
+    resolvedTickets: 0,
+  });
+
+  res.status(201).json(agent);
+});
+
+/** DELETE /api/users/agents/:id — Admin only: remove a support agent */
+apiRouter.delete("/users/agents/:id", requireRole("admin"), (req: AuthRequest, res: Response) => {
+  const removed = store.removeAgent(req.params.id);
+  if (!removed) {
+    res.status(404).json({ error: "Agent not found." });
+    return;
+  }
+  res.json({ ok: true });
 });

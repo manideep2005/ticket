@@ -20,6 +20,7 @@ import type {
   TicketListParams,
   TicketMessage,
   UpdateTicketRequest,
+  UserProfile,
 } from "./types";
 
 /** Base URL for the Google Cloud API. Empty string = same origin. */
@@ -220,6 +221,26 @@ export const api = {
   /** POST /api/teams/rebalance — Auto-rebalance caseload across agents */
   rebalanceCaseload(): Promise<{ rebalancedCount: number; message: string }> {
     return request("/api/teams/rebalance", { method: "POST" });
+  },
+
+  /** GET /api/users — Admin only: list customer + agent profiles */
+  listUsers(): Promise<{ customers: UserProfile[]; agents: UserProfile[] }> {
+    return request("/api/users");
+  },
+
+  /** POST /api/users/agents — Admin only: add a support agent */
+  addAgent(payload: { name: string; email: string; assignedTeam?: string }): Promise<UserProfile> {
+    return request("/api/users/agents", { method: "POST", body: payload });
+  },
+
+  /** DELETE /api/users/agents/:id — Admin only: remove a support agent */
+  removeAgent(userId: string): Promise<{ ok: boolean }> {
+    return request(`/api/users/agents/${encodeURIComponent(userId)}`, { method: "DELETE" });
+  },
+
+  /** POST /api/users/register — auto-called on every sign-in */
+  registerUser(avatarUrl?: string): Promise<unknown> {
+    return request("/api/users/register", { method: "POST", body: { avatarUrl } });
   },
 };
 

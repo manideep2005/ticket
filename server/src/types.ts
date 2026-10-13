@@ -102,3 +102,16 @@ export interface ReportSummary {
   breachedSlaCount?: number;
   avgUrgencyScore?: number;
 }
+export interface UserProfile {
+  userId: string;
+  email: string;
+  name: string;
+  role: AppRole;
+  avatarUrl?: string;
+  joinedAtUtc: string;
+  totalTickets: number;
+  openTickets: number;
+  resolvedTickets: number;
+  lastActiveUtc?: string;
+  assignedTeam?: string;
+}

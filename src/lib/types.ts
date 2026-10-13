@@ -152,3 +152,17 @@ export type AuthState =
   | { status: "authenticated"; user: AuthUser }
   | { status: "anonymous" }
   | { status: "unavailable" };
+
+export interface UserProfile {
+  userId: string;
+  email: string;
+  name: string;
+  role: AppRole;
+  avatarUrl?: string;
+  joinedAtUtc: string;
+  totalTickets: number;
+  openTickets: number;
+  resolvedTickets: number;
+  lastActiveUtc?: string;
+  assignedTeam?: string;
+}

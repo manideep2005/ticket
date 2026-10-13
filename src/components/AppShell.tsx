@@ -33,12 +33,18 @@ const NAV: NavItem[] = [
     to: "/tickets/new",
     label: "New ticket",
     icon: "plus",
-    roles: ["customer", "admin"],
+    roles: ["customer"],
   },
   {
     to: "/routing",
     label: "Routing rules",
     icon: "route",
+    roles: ["admin"],
+  },
+  {
+    to: "/profiles",
+    label: "User Profiles",
+    icon: "users",
     roles: ["admin"],
   },
 ];
@@ -48,6 +54,7 @@ const TITLES: [string, string][] = [
   ["/tickets/new", "New ticket"],
   ["/tickets", "Tickets"],
   ["/routing", "Routing rules"],
+  ["/profiles", "User Profiles"],
   ["/", "Overview"],
 ];
 

@@ -22,6 +22,7 @@ import {
   type ReactNode,
 } from "react";
 import type { AppRole, AuthState, AuthUser } from "./types";
+import { api } from "./api";
 
 const TOKEN_STORAGE_KEY = "supporthub_google_id_token";
 
@@ -211,6 +212,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatarUrl: payload.picture,
       },
     });
+
+    // Fire-and-forget: auto-register this user in backend (customers only)
+    api.registerUser(payload.picture as string | undefined).catch(() => {
+      // Non-critical — registration is best-effort
+    });
+
     return true;
   }, []);
 

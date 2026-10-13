@@ -10,6 +10,7 @@ import { NewTicket } from "./pages/NewTicket";
 import { TicketDetail } from "./pages/TicketDetail";
 import { RoutingRules } from "./pages/RoutingRules";
 import { AmazonPortal } from "./pages/AmazonPortal";
+import { Profiles } from "./pages/Profiles";
 import { EmptyState } from "./components/ui";
 
 function BootScreen({ label }: { label: string }) {
@@ -84,13 +85,28 @@ function Portal() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/amazon-demo" element={<AmazonPortal />} />
         <Route path="/tickets" element={<Tickets />} />
-        <Route path="/tickets/new" element={<NewTicket />} />
+        <Route
+          path="/tickets/new"
+          element={
+            <RequireRole roles={["customer"]}>
+              <NewTicket />
+            </RequireRole>
+          }
+        />
         <Route path="/tickets/:id" element={<TicketDetail />} />
         <Route
           path="/routing"
           element={
             <RequireRole roles={["admin"]}>
               <RoutingRules />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/profiles"
+          element={
+            <RequireRole roles={["admin"]}>
+              <Profiles />
             </RequireRole>
           }
         />

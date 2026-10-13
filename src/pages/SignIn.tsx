@@ -1,75 +1,140 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../lib/auth";
 import { Icon } from "../components/icons";
 import { Alert } from "../components/ui";
 
-/**
- * Sign-in screen. Backed by Google Cloud Platform via Google Identity Services
- * (OAuth 2.0 / OpenID Connect). It never accepts or stores a password itself —
- * hardcoded demo passwords and credentials are explicitly forbidden.
- */
+const RETURNING_USER_KEY = "supporthub_returning_user";
+
+function isReturningUser(): boolean {
+  try { return localStorage.getItem(RETURNING_USER_KEY) === "true"; } catch { return false; }
+}
+function markReturningUser() {
+  try { localStorage.setItem(RETURNING_USER_KEY, "true"); } catch { /* ignore */ }
+}
+
+const FEATURES = [
+  {
+    icon: "🎫",
+    title: "Smart Ticket Management",
+    desc: "Submit, track and resolve support tickets — automatically routed to the right team.",
+  },
+  {
+    icon: "🤖",
+    title: "AI-Powered Triage",
+    desc: "Every ticket is instantly categorized, prioritized and assigned using heuristic AI.",
+  },
+  {
+    icon: "⏱️",
+    title: "SLA Tracking",
+    desc: "Real-time SLA burn-down so no ticket ever breaches its deadline unnoticed.",
+  },
+  {
+    icon: "☁️",
+    title: "Built on Google Cloud",
+    desc: "Powered by Cloud Run, Firestore and Cloud Pub/Sub — scalable and always on.",
+  },
+];
+
+function AnimatedHero() {
+  const [activeFeature, setActiveFeature] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setActiveFeature((i) => (i + 1) % FEATURES.length), 3000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <section className="auth-hero auth-hero-animated">
+      {/* Background orbs */}
+      <div className="hero-orb hero-orb-1" />
+      <div className="hero-orb hero-orb-2" />
+
+      {/* Brand */}
+      <div className="hero-brand">
+        <span className="brand-mark">S</span>
+        <strong>SupportHub</strong>
+      </div>
+
+      {/* Main copy */}
+      <div className="hero-copy">
+        <h1 className="hero-headline">
+          Customer support,<br />
+          <span className="hero-headline-accent">powered by the cloud.</span>
+        </h1>
+        <p className="hero-tagline">
+          A unified platform for customers, support agents and admins — with AI triage,
+          SLA tracking and real-time routing built in.
+        </p>
+      </div>
+
+      {/* Animated feature cards */}
+      <div className="hero-features">
+        {FEATURES.map((f, i) => (
+          <div
+            key={f.title}
+            className={`hero-feature-card ${i === activeFeature ? "hero-feature-active" : ""}`}
+          >
+            <span className="hero-feature-icon">{f.icon}</span>
+            <div>
+              <div className="hero-feature-title">{f.title}</div>
+              <div className="hero-feature-desc">{f.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Progress dots */}
+      <div className="hero-dots">
+        {FEATURES.map((_, i) => (
+          <button
+            key={i}
+            className={`hero-dot ${i === activeFeature ? "active" : ""}`}
+            onClick={() => setActiveFeature(i)}
+            aria-label={`Feature ${i + 1}`}
+          />
+        ))}
+      </div>
+
+      {/* Footer */}
+      <p className="hero-footer-note">
+        Trusted by support teams · Backed by Google Cloud Platform
+      </p>
+    </section>
+  );
+}
+
+/* ─── Main SignIn page ────────────────────────────────────────── */
 export function SignIn() {
   const { state, signIn, enterPreviewMode, googleClientId, handleCredentialResponse } =
     useAuth();
   const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [gsiRendered, setGsiRendered] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(() => !isReturningUser());
   const authAvailable = state.status === "anonymous" || state.status === "authenticated";
 
-  // Automatically render Google's official branded sign-in button if GSI SDK is present
   useEffect(() => {
     if (!googleClientId || !googleBtnRef.current || !window.google?.accounts?.id) return;
-
     try {
       window.google.accounts.id.renderButton(googleBtnRef.current, {
         theme: "filled_blue",
         size: "large",
-        text: "continue_with",
+        text: isSignUp ? "signup_with" : "signin_with",
         shape: "rectangular",
         width: 320,
       });
+      setGsiRendered(true);
     } catch {
-      // Fallback button remains rendered below if GSI renderButton fails
+      setGsiRendered(false);
     }
-  }, [googleClientId, handleCredentialResponse, authAvailable]);
+  }, [googleClientId, handleCredentialResponse, authAvailable, isSignUp]);
+
+  function handleSignIn() { markReturningUser(); signIn(); }
+  function switchToSignIn() { markReturningUser(); setIsSignUp(false); }
+  function switchToSignUp() { setIsSignUp(true); }
 
   return (
     <div className="auth-screen">
-      <section className="auth-hero">
-        <div className="flex" style={{ gap: 10 }}>
-          <span className="brand-mark">S</span>
-          <strong style={{ color: "#fff", fontSize: 16 }}>SupportHub</strong>
-        </div>
-
-        <div>
-          <h1>Cloud customer support, end to end.</h1>
-          <p>
-            Submit tickets, watch them get routed automatically to the right team, and
-            follow every reply — backed by real Google Cloud services, not a mock.
-          </p>
-          <ul className="auth-points">
-            <li>
-              <span className="tick">✓</span>
-              <strong>Customer Role:</strong> Submit tickets, view your personal ticket history, get automatic triage, and reply directly to agents.
-            </li>
-            <li>
-              <span className="tick">✓</span>
-              <strong>Support Agent Role:</strong> View team queues, manage ticket lifecycle, monitor SLA deadlines, and use 1-click AI recommended responses.
-            </li>
-            <li>
-              <span className="tick">✓</span>
-              <strong>Admin Role:</strong> Configure category routing rules, view organization-wide SLA compliance analytics, and manage workload balance.
-            </li>
-            <li>
-              <span className="tick">✓</span>
-              <strong>Google Cloud Engine:</strong> Real-time heuristic AI triage, automated priority escalation, and instant load balancing.
-            </li>
-          </ul>
-        </div>
-
-        <p className="small" style={{ color: "#7b83a0" }}>
-          Built on Google Cloud Platform · Cloud Functions · Firestore · Cloud Pub/Sub ·
-          Cloud Logging &amp; Monitoring
-        </p>
-      </section>
+      <AnimatedHero />
 
       <section className="auth-panel">
         <div className="auth-card card card-pad">
@@ -77,9 +142,20 @@ export function SignIn() {
             <span className="brand-mark">S</span> SupportHub
           </div>
 
-          <h2>Sign in</h2>
+          <div className="auth-mode-tabs">
+            <button className={`auth-mode-tab ${isSignUp ? "active" : ""}`} onClick={switchToSignUp}>
+              Create account
+            </button>
+            <button className={`auth-mode-tab ${!isSignUp ? "active" : ""}`} onClick={switchToSignIn}>
+              Sign in
+            </button>
+          </div>
+
+          <h2>{isSignUp ? "Get started" : "Welcome back"}</h2>
           <p className="auth-sub">
-            Use your Google or Google Workspace account to access the support portal.
+            {isSignUp
+              ? "Create your SupportHub account using your Google or Google Workspace account."
+              : "Sign in to your SupportHub account to view tickets and manage support."}
           </p>
 
           {state.status === "checking" && (
@@ -90,26 +166,24 @@ export function SignIn() {
 
           {authAvailable && (
             <>
-              {/* Official Google GSI button mount point */}
-              <div
-                ref={googleBtnRef}
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  minHeight: 40,
-                  marginBottom: 8,
-                }}
-              />
-
-              <button className="btn btn-primary btn-block" onClick={signIn}>
-                <Icon name="google" size={16} />
-                Continue with Google
-              </button>
+              <div ref={googleBtnRef} style={{ display: "flex", justifyContent: "center", minHeight: 40, marginBottom: 8 }} />
+              {!gsiRendered && (
+                <button className="btn btn-primary btn-block" onClick={handleSignIn}>
+                  <Icon name="google" size={16} />
+                  {isSignUp ? "Sign up with Google" : "Sign in with Google"}
+                </button>
+              )}
+              <p className="auth-switch-text">
+                {isSignUp ? (
+                  <>Already have an account?{" "}<button className="auth-switch-link" onClick={switchToSignIn}>Sign in</button></>
+                ) : (
+                  <>New to SupportHub?{" "}<button className="auth-switch-link" onClick={switchToSignUp}>Create an account</button></>
+                )}
+              </p>
               <p className="auth-footnote">
                 Authentication is handled by Google Identity Services (OAuth 2.0 / OIDC).
                 The Google Cloud backend validates the cryptographic signature of your
-                ID token on every request — the interface is never trusted for
-                authorization.
+                ID token on every request — the interface is never trusted for authorization.
               </p>
             </>
           )}
@@ -125,18 +199,12 @@ export function SignIn() {
                 Preview the interface
               </button>
               <div className="auth-divider">or</div>
-              <button
-                className="btn btn-block"
-                onClick={signIn}
-                title="Will fail until VITE_GOOGLE_CLIENT_ID is configured in .env.local"
-              >
+              <button className="btn btn-block" onClick={signIn} title="Will fail until VITE_GOOGLE_CLIENT_ID is configured">
                 Try Google sign-in anyway
               </button>
               <p className="auth-footnote">
                 Preview mode shows the interface shell only — it does not simulate sign-in
-                and contains <strong>no fabricated ticket data</strong>. Every data screen
-                will report the backend as not connected until the Google Cloud APIs are
-                deployed.
+                and contains <strong>no fabricated ticket data</strong>.
               </p>
             </>
           )}
