@@ -87,7 +87,7 @@ export function analyzeTicketIntelligence(
       detectedCategory = "Shipping";
     } else if (text.includes("feature") || text.includes("confused") || text.includes("understand the features") || text.includes("how to use") || text.includes("documentation") || text.includes("guide") || text.includes("where is")) {
       detectedCategory = "General";
-    } else if (text.includes("api") || text.includes("database") || text.includes("server") || text.includes("error") || text.includes("crash") || text.includes("bug") || text.includes("timeout") || text.includes("code") || text.includes("slow")) {
+    } else if (text.includes("api") || text.includes("database") || text.includes("server") || text.includes("error") || text.includes("crash") || text.includes("bug") || text.includes("timeout") || text.includes("code") || text.includes("slow") || text.includes("charging") || text.includes("defective") || text.includes("hardware") || text.includes("battery") || text.includes("screen") || text.includes("damaged")) {
       detectedCategory = "Technical";
     }
   }
@@ -100,7 +100,10 @@ export function analyzeTicketIntelligence(
     detectedTags.push("Finance");
     urgencyScore += 10;
   } else if (detectedCategory === "Technical") {
-    detectedTags.push("Infrastructure");
+    detectedTags.push("Hardware/Platform");
+    urgencyScore += 10;
+  } else if (detectedCategory === "Shipping") {
+    detectedTags.push("Logistics");
     urgencyScore += 10;
   }
 
@@ -189,7 +192,29 @@ export function analyzeTicketIntelligence(
   let suggestedAction: string | undefined;
   let confidenceScore = 88;
 
-  if (detectedCategory === "Billing") {
+  const isHardwareDefect = text.includes("charging") || text.includes("defective") || text.includes("damage") || text.includes("screen") || text.includes("battery") || text.includes("power");
+  const isDeliveryDelay = text.includes("courier") || text.includes("out for delivery") || text.includes("transit") || text.includes("tracking") || text.includes("delayed");
+  const isDuplicateCharge = text.includes("twice") || text.includes("duplicate") || text.includes("charged twice") || text.includes("refund");
+
+  if (isHardwareDefect) {
+    recommendedReply =
+      "Hello! We apologize for the hardware issue with your device. We have logged a manufacturing defect diagnostic and authorized a return merchandise authorization (RMA) with priority replacement.";
+    rootCauseAnalysis = "Hardware failure isolated to internal power circuitry / battery management IC or component defect upon delivery.";
+    suggestedAction = "Authorize complimentary doorstep pickup & issue immediate replacement order";
+    confidenceScore = 95;
+  } else if (isDuplicateCharge) {
+    recommendedReply =
+      "Hello! We have reviewed your invoice and identified the duplicate card authorization. A reversal request of the duplicate charge has been dispatched to your issuing bank.";
+    rootCauseAnalysis = "Duplicate transaction token submitted during network payment processing handshake.";
+    suggestedAction = "Process immediate payment ledger reversal & send updated receipt";
+    confidenceScore = 96;
+  } else if (isDeliveryDelay) {
+    recommendedReply =
+      "Hello! We apologize for the delay in receiving your package. We have contacted the regional hub supervisor to prioritize immediate re-attempt with signature verification.";
+    rootCauseAnalysis = "Courier routing discrepancy or missed transit delivery window at local distribution facility.";
+    suggestedAction = "Escalate directly to regional courier dispatch manager & provide live GPS tracking";
+    confidenceScore = 92;
+  } else if (detectedCategory === "Billing") {
     recommendedReply =
       "Hello! Thank you for reaching out. Our billing engineering team is currently auditing the charge on your account. Please allow us to review your latest invoice details.";
     rootCauseAnalysis = "Probable duplicate payment gateway capture or unacknowledged webhook retry during card settlement window.";

@@ -188,6 +188,21 @@ apiRouter.get("/tickets/:id", (req: AuthRequest, res: Response) => {
     return;
   }
 
+  // Backfill copilot diagnostics if ticket was created before intelligence engine update
+  if (!ticket.rootCauseAnalysis || !ticket.suggestedAction || !ticket.recommendedReply) {
+    const analysis = analyzeTicketIntelligence(
+      ticket.subject,
+      ticket.description,
+      ticket.category,
+      ticket.priority,
+    );
+    ticket.rootCauseAnalysis = ticket.rootCauseAnalysis || analysis.rootCauseAnalysis;
+    ticket.suggestedAction = ticket.suggestedAction || analysis.suggestedAction;
+    ticket.recommendedReply = ticket.recommendedReply || analysis.recommendedReply;
+    ticket.confidenceScore = ticket.confidenceScore || analysis.confidenceScore;
+    ticket.urgencyScore = ticket.urgencyScore !== undefined ? ticket.urgencyScore : analysis.urgencyScore;
+  }
+
   res.json(ticket);
 });
 
