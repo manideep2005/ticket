@@ -19,7 +19,7 @@ const NAV: NavItem[] = [
   { to: "/", label: "Overview", icon: "dashboard", roles: "all", end: true },
   {
     to: "/amazon-demo",
-    label: "✨ Live Order Portal",
+    label: "Orders & Support",
     icon: "ticket",
     roles: "all",
   },
@@ -44,7 +44,7 @@ const NAV: NavItem[] = [
 ];
 
 const TITLES: [string, string][] = [
-  ["/amazon-demo", "Amazon-Style Order Portal Demo"],
+  ["/amazon-demo", "Orders & Returns Support"],
   ["/tickets/new", "New ticket"],
   ["/tickets", "Tickets"],
   ["/routing", "Routing rules"],
