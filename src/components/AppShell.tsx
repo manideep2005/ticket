@@ -16,6 +16,12 @@ interface NavItem {
 const NAV: NavItem[] = [
   { to: "/", label: "Overview", icon: "dashboard", roles: "all", end: true },
   {
+    to: "/amazon-demo",
+    label: "✨ Live Order Portal",
+    icon: "ticket",
+    roles: "all",
+  },
+  {
     to: "/tickets",
     label: "Tickets",
     icon: "ticket",
@@ -36,6 +42,7 @@ const NAV: NavItem[] = [
 ];
 
 const TITLES: [string, string][] = [
+  ["/amazon-demo", "Amazon-Style Order Portal Demo"],
   ["/tickets/new", "New ticket"],
   ["/tickets", "Tickets"],
   ["/routing", "Routing rules"],

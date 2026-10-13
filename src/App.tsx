@@ -9,6 +9,7 @@ import { Tickets } from "./pages/Tickets";
 import { NewTicket } from "./pages/NewTicket";
 import { TicketDetail } from "./pages/TicketDetail";
 import { RoutingRules } from "./pages/RoutingRules";
+import { AmazonPortal } from "./pages/AmazonPortal";
 import { EmptyState } from "./components/ui";
 
 function BootScreen({ label }: { label: string }) {
@@ -81,6 +82,7 @@ function Portal() {
         }
       >
         <Route path="/" element={<Dashboard />} />
+        <Route path="/amazon-demo" element={<AmazonPortal />} />
         <Route path="/tickets" element={<Tickets />} />
         <Route path="/tickets/new" element={<NewTicket />} />
         <Route path="/tickets/:id" element={<TicketDetail />} />
