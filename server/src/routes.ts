@@ -2,7 +2,7 @@ import { Router, type Response } from "express";
 import crypto from "crypto";
 import { requireAuth, requireRole, type AuthRequest } from "./auth.ts";
 import { store } from "./store.ts";
-import { ROUTING_RULES, processAutomatedRouting } from "./routing.ts";
+import { ROUTING_RULES, processAutomatedRouting, getTeamCapacities, autoRebalanceCaseload } from "./routing.ts";
 import { analyzeTicketIntelligence } from "./intelligence.ts";
 import type { Category, Priority, ReportSummary, Ticket, TicketStatus } from "./types.ts";
 
@@ -22,6 +22,17 @@ apiRouter.use(requireAuth);
 /** GET /api/me — Returns current authenticated user profile and resolved role */
 apiRouter.get("/me", (req: AuthRequest, res: Response) => {
   res.json({ user: req.user });
+});
+
+/** GET /api/teams/capacity — Real-Time Engineering Team Load Heatmap */
+apiRouter.get("/teams/capacity", requireRole("agent", "admin"), (_req: AuthRequest, res: Response) => {
+  res.json(getTeamCapacities());
+});
+
+/** POST /api/teams/rebalance — Intelligent Auto-Rebalance Caseload across engineers */
+apiRouter.post("/teams/rebalance", requireRole("admin"), (_req: AuthRequest, res: Response) => {
+  const result = autoRebalanceCaseload();
+  res.json(result);
 });
 
 /** GET /api/routing/rules */
@@ -144,6 +155,9 @@ apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
     slaDueUtc: intelligence.slaDueUtc,
     slaBreached: false,
     recommendedReply: intelligence.recommendedReply,
+    rootCauseAnalysis: intelligence.rootCauseAnalysis,
+    confidenceScore: intelligence.confidenceScore,
+    suggestedAction: intelligence.suggestedAction,
   };
 
   store.createTicket(newTicket);

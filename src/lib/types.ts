@@ -67,6 +67,18 @@ export interface Ticket {
   slaDueUtc?: string;
   slaBreached?: boolean;
   recommendedReply?: string;
+  rootCauseAnalysis?: string;
+  confidenceScore?: number;
+  suggestedAction?: string;
+}
+
+export interface TeamCapacity {
+  team: string;
+  totalAgents: number;
+  activeAgents: number;
+  activeTickets: number;
+  loadPercent: number;
+  status: "Optimal" | "Moderate" | "Congested";
 }
 
 /** POST /api/tickets request body */

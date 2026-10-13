@@ -185,18 +185,40 @@ export function analyzeTicketIntelligence(
 
   // Smart reply recommendation based on category & keywords
   let recommendedReply: string | undefined;
-  if (category === "Billing") {
+  let rootCauseAnalysis: string | undefined;
+  let suggestedAction: string | undefined;
+  let confidenceScore = 88;
+
+  if (detectedCategory === "Billing") {
     recommendedReply =
       "Hello! Thank you for reaching out. Our billing engineering team is currently auditing the charge on your account. Please allow us to review your latest invoice details.";
-  } else if (category === "Account") {
+    rootCauseAnalysis = "Probable duplicate payment gateway capture or unacknowledged webhook retry during card settlement window.";
+    suggestedAction = "Initiate instant gateway transaction audit & issue ledger credit";
+    confidenceScore = 93;
+  } else if (detectedCategory === "Account") {
     recommendedReply =
       "Hello! For your account security, we have initiated a credential verification check. Please verify if you have 2FA enabled on your Google or portal account.";
+    rootCauseAnalysis = "Session token invalidation or identity authorization token mismatch across IdP certificate boundary.";
+    suggestedAction = "Issue temporary 2FA reset link & invalidate prior OAuth sessions";
+    confidenceScore = 91;
   } else if (hasCritical || suggestedPriority === "Critical") {
     recommendedReply =
       "ALERT: Our Platform Reliability Engineering team has been paged immediately regarding this incident. We are actively investigating and will post real-time updates.";
-  } else if (category === "Technical") {
+    rootCauseAnalysis = "High-severity service degradation detected across production nodes, causing cascading failure / timeouts.";
+    suggestedAction = "Trigger SRE on-call escalation & failover traffic to secondary region";
+    confidenceScore = 97;
+  } else if (detectedCategory === "Shipping") {
+    recommendedReply =
+      "Hello! We have flagged your shipment tracking with our regional logistics partner to expedite delivery confirmation.";
+    rootCauseAnalysis = "Carrier transit scan gap or delivery attempt missed during local hub sortation cycle.";
+    suggestedAction = "Contact regional courier dispatcher & request prioritized re-delivery attempt";
+    confidenceScore = 89;
+  } else {
     recommendedReply =
       "Hello! Our technical team has captured your diagnostic information and system error logs. We are actively isolating the root cause.";
+    rootCauseAnalysis = "Client-reported behavior diverging from standard application workflow; isolated telemetry inspection required.";
+    suggestedAction = "Inspect recent client telemetry & request console error stack trace";
+    confidenceScore = 85;
   }
 
   return {
@@ -208,5 +230,8 @@ export function analyzeTicketIntelligence(
     slaDueHours,
     slaDueUtc,
     recommendedReply,
+    rootCauseAnalysis,
+    confidenceScore,
+    suggestedAction,
   };
 }

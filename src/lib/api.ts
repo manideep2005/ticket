@@ -211,6 +211,16 @@ export const api = {
   getRoutingRules(): Promise<{ rules: RoutingRule[] } | RoutingRule[]> {
     return request("/api/routing/rules");
   },
+
+  /** GET /api/teams/capacity — Real-time team capacity heatmap */
+  getTeamCapacities(): Promise<{ capacities: Array<{ team: string; totalAgents: number; activeAgents: number; activeTickets: number; loadPercent: number; status: "Optimal" | "Moderate" | "Congested"; }> }> {
+    return request("/api/teams/capacity");
+  },
+
+  /** POST /api/teams/rebalance — Auto-rebalance caseload across agents */
+  rebalanceCaseload(): Promise<{ rebalancedCount: number; message: string }> {
+    return request("/api/teams/rebalance", { method: "POST" });
+  },
 };
 
 /** Normalizes list endpoints that return either an array or { tickets } / { rules }. */
