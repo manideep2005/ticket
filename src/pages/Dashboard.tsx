@@ -325,12 +325,12 @@ export function Dashboard() {
   // customers derive their personal overview from their own ticket list.
   const serverReport = useApi(
     () => api.getReportSummary(windowDays),
-    [windowDays],
+    [windowDays, activeRole],
     { enabled: isAgentLike },
   );
   const ownTickets = useApi(
     async () => (await api.listTickets()) as { tickets: Ticket[] } | Ticket[],
-    [],
+    [activeRole],
     { enabled: !isAgentLike },
   );
 

@@ -193,7 +193,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const email = payload.email ?? "";
     const name = payload.name ?? email.split("@")[0] ?? payload.sub.slice(0, 8);
-    const roles = resolveRoles(email, payload);
+    const savedOverride = typeof window !== "undefined" ? window.sessionStorage.getItem("active_role_override") : null;
+    const baseRoles = resolveRoles(email, payload);
+    const roles = (savedOverride && ["customer", "agent", "admin"].includes(savedOverride))
+      ? [savedOverride as AppRole]
+      : baseRoles;
 
     setStoredToken(idToken);
     setToken(idToken);
