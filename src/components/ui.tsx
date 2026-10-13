@@ -74,6 +74,83 @@ export function SlaBadge({ slaDueUtc, isResolved }: { slaDueUtc?: string; isReso
   );
 }
 
+/**
+ * SLA Burn-Down Progress Bar — shows % of SLA window consumed.
+ * Animates in real-time with CSS transitions. Turns red when > 75% consumed.
+ */
+export function SlaBurnDown({
+  slaDueUtc,
+  createdAtUtc,
+  isResolved,
+}: {
+  slaDueUtc?: string;
+  createdAtUtc?: string;
+  isResolved?: boolean;
+}) {
+  if (!slaDueUtc || !createdAtUtc) return null;
+
+  const totalMs = new Date(slaDueUtc).getTime() - new Date(createdAtUtc).getTime();
+  const usedMs = Date.now() - new Date(createdAtUtc).getTime();
+  const pct = Math.min(100, Math.max(0, Math.round((usedMs / totalMs) * 100)));
+  const remaining = 100 - pct;
+
+  const trackColor = isResolved
+    ? "#10b981"
+    : pct >= 90
+      ? "#ef4444"
+      : pct >= 70
+        ? "#f59e0b"
+        : "#3b82f6";
+
+  const label = isResolved
+    ? "✓ Resolved within SLA"
+    : pct >= 100
+      ? "⚠️ SLA Breached"
+      : `${remaining}% SLA window remaining`;
+
+  return (
+    <div style={{ margin: "12px 0" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: 12,
+          fontWeight: 600,
+          marginBottom: 5,
+          color: trackColor,
+        }}
+      >
+        <span>⏱ SLA Burn-Down</span>
+        <span>{label}</span>
+      </div>
+      <div
+        style={{
+          height: 8,
+          background: "#e2e8f0",
+          borderRadius: 99,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${pct}%`,
+            background: trackColor,
+            borderRadius: 99,
+            transition: "width 1s ease, background 1s ease",
+          }}
+        />
+      </div>
+      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>
+        {pct}% of SLA window consumed
+        {slaDueUtc && (
+          <> · Deadline: {new Date(slaDueUtc).toLocaleString()}</>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Spinner({ label }: { label?: string }) {
   return (
     <span className="flex" style={{ fontSize: 13, color: "var(--text-muted)" }}>

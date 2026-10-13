@@ -12,6 +12,187 @@ import {
 } from "../components/ui";
 import { Icon } from "../components/icons";
 
+function AdminControlPanel() {
+  const navigate = useNavigate();
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportDone, setExportDone] = useState(false);
+  const [healthData, setHealthData] = useState<any>(null);
+  const [healthBusy, setHealthBusy] = useState(false);
+
+  async function handleExportCsv() {
+    setExportBusy(true);
+    setExportDone(false);
+    try {
+      const res = await fetch("/api/tickets/export/csv", {
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("gid_token") ?? ""}`,
+          "x-role-override": sessionStorage.getItem("active_role_override") ?? "",
+        },
+      });
+      if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tickets-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportDone(true);
+      setTimeout(() => setExportDone(false), 3000);
+    } catch (e: any) {
+      alert("Export error: " + e.message);
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
+  async function handleHealthCheck() {
+    setHealthBusy(true);
+    try {
+      const res = await fetch("/health");
+      const json = await res.json();
+      setHealthData(json);
+    } catch (e: any) {
+      setHealthData({ status: "error", message: e.message });
+    } finally {
+      setHealthBusy(false);
+    }
+  }
+
+  const adminActions = [
+    {
+      icon: "📥",
+      title: "Export All Tickets (CSV)",
+      desc: "Download complete ticket dataset with urgency scores, SLA status, and agent assignments.",
+      action: handleExportCsv,
+      busy: exportBusy,
+      doneLabel: exportDone ? "✅ Downloaded!" : undefined,
+      btnLabel: "Export CSV",
+      btnColor: "#059669",
+    },
+    {
+      icon: "🔀",
+      title: "Manage Routing Rules",
+      desc: "View and understand the keyword-based auto-routing configuration that assigns tickets to teams.",
+      action: () => navigate("/routing"),
+      busy: false,
+      btnLabel: "Open Routing",
+      btnColor: "#2563eb",
+    },
+    {
+      icon: "📋",
+      title: "View Full Ticket Queue",
+      desc: "See all tickets across all teams — New, Queued, In-Progress, Waiting, Resolved and Closed.",
+      action: () => navigate("/tickets"),
+      busy: false,
+      btnLabel: "View Queue",
+      btnColor: "#7c3aed",
+    },
+    {
+      icon: "🩺",
+      title: "System Health Check",
+      desc: "Ping the Google Cloud Run backend and verify GCP project connectivity and environment.",
+      action: handleHealthCheck,
+      busy: healthBusy,
+      btnLabel: "Run Check",
+      btnColor: "#d97706",
+    },
+  ];
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 14,
+          paddingBottom: 10,
+          borderBottom: "1px solid #e2e8f0",
+        }}
+      >
+        <span style={{ fontSize: 18 }}>🛡️</span>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+            Admin Control Panel
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>
+            Admin-only operations — not visible to customers or agents
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+          gap: 14,
+        }}
+      >
+        {adminActions.map((action) => (
+          <div
+            key={action.title}
+            style={{
+              background: "#fff",
+              border: "1px solid #e2e8f0",
+              borderRadius: 10,
+              padding: 18,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 22 }}>{action.icon}</span>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0f172a" }}>
+              {action.title}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.5, flex: 1 }}>
+              {action.desc}
+            </div>
+            <button
+              onClick={action.action}
+              disabled={action.busy}
+              style={{
+                marginTop: 4,
+                background: action.busy ? "#94a3b8" : action.btnColor,
+                color: "#fff",
+                border: "none",
+                padding: "8px 14px",
+                borderRadius: 7,
+                fontWeight: 600,
+                fontSize: 12.5,
+                cursor: action.busy ? "not-allowed" : "pointer",
+                alignSelf: "flex-start",
+              }}
+            >
+              {action.busy ? "⏳ Working..." : (action.doneLabel ?? action.btnLabel)}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Health result */}
+      {healthData && (
+        <div
+          style={{
+            marginTop: 14,
+            background: healthData.status === "ok" ? "#f0fdf4" : "#fef2f2",
+            border: `1px solid ${healthData.status === "ok" ? "#bbf7d0" : "#fecaca"}`,
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 12.5,
+            fontFamily: "ui-monospace, monospace",
+            color: healthData.status === "ok" ? "#166534" : "#dc2626",
+          }}
+        >
+          {healthData.status === "ok" ? "✅" : "❌"} Backend health:{" "}
+          {JSON.stringify(healthData)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const WINDOWS = [7, 30, 90] as const;
 
 /** Count map builder — always over real records. */
@@ -222,11 +403,14 @@ export function Dashboard() {
                 : "You haven't submitted any support tickets in this period."
             }
             actions={
-              <button className="btn btn-primary" onClick={() => navigate("/tickets/new")}>
-                <Icon name="plus" size={14} /> Create a ticket
-              </button>
+              !isAgentLike ? (
+                <button className="btn btn-primary" onClick={() => navigate("/tickets/new")}>
+                  <Icon name="plus" size={14} /> Create a ticket
+                </button>
+              ) : undefined
             }
           />
+          {activeRole === "admin" && <AdminControlPanel />}
         </div>
       ) : (
         <>
@@ -362,6 +546,12 @@ export function Dashboard() {
               </li>
             </ul>
           </div>
+
+          {activeRole === "admin" && (
+            <div className="card card-pad">
+              <AdminControlPanel />
+            </div>
+          )}
         </>
       )}
     </>

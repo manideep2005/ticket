@@ -11,6 +11,7 @@ import {
   PriorityBadge,
   SkeletonCard,
   SlaBadge,
+  SlaBurnDown,
   StatusBadge,
   UrgencyBadge,
 } from "../components/ui";
@@ -242,6 +243,15 @@ export function TicketDetail() {
             <div className="card-body" style={{ whiteSpace: "pre-wrap", fontSize: 14.2 }}>
               {ticket.description}
             </div>
+            {ticket.slaDueUtc && (
+              <div className="card-body" style={{ paddingTop: 0 }}>
+                <SlaBurnDown
+                  slaDueUtc={ticket.slaDueUtc}
+                  createdAtUtc={ticket.createdAtUtc}
+                  isResolved={ticket.status === "Resolved" || ticket.status === "Closed"}
+                />
+              </div>
+            )}
           </div>
 
           <div className="card">

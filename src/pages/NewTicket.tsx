@@ -2,34 +2,31 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, api, describeError } from "../lib/api";
 import { useToast } from "../components/Toast";
-import { Alert, StatusBadge } from "../components/ui";
+import { Alert, StatusBadge, UrgencyBadge, SlaBadge } from "../components/ui";
 import { Icon } from "../components/icons";
-import { CATEGORIES, PRIORITIES, type CreateTicketRequest, type Ticket } from "../lib/types";
+import type { CreateTicketRequest, Ticket } from "../lib/types";
 
 interface FormErrors {
   subject?: string;
   description?: string;
-  category?: string;
-  priority?: string;
 }
 
 const SUBJECT_MAX = 120;
 const DESC_MAX = 4000;
 
-function validate(form: CreateTicketRequest): FormErrors {
+function validate(subject: string, description: string): FormErrors {
   const errors: FormErrors = {};
-  const subject = form.subject.trim();
-  const description = form.description.trim();
-  if (!subject) errors.subject = "Subject is required.";
-  else if (subject.length < 5) errors.subject = "Subject must be at least 5 characters.";
-  else if (subject.length > SUBJECT_MAX)
+  const s = subject.trim();
+  const d = description.trim();
+  if (!s) errors.subject = "Subject is required.";
+  else if (s.length < 5) errors.subject = "Subject must be at least 5 characters.";
+  else if (s.length > SUBJECT_MAX)
     errors.subject = `Subject must be ${SUBJECT_MAX} characters or fewer.`;
-  if (!description) errors.description = "Description is required.";
-  else if (description.length < 20)
+  if (!d) errors.description = "Description is required.";
+  else if (d.length < 20)
     errors.description = "Please describe the issue in at least 20 characters.";
-  else if (description.length > DESC_MAX)
+  else if (d.length > DESC_MAX)
     errors.description = `Description must be ${DESC_MAX} characters or fewer.`;
-  // Category can now be auto-detected by the AI triage engine if left blank
   return errors;
 }
 
@@ -39,8 +36,6 @@ export function NewTicket() {
 
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("");
-  const [priority, setPriority] = useState<string>("Medium");
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -50,19 +45,21 @@ export function NewTicket() {
     e.preventDefault();
     setServerError(null);
 
-    const payload: CreateTicketRequest = {
-      subject: subject.trim(),
-      description: description.trim(),
-      category: category as CreateTicketRequest["category"],
-      priority: priority as CreateTicketRequest["priority"],
-    };
-
-    const localErrors = validate(payload);
+    const localErrors = validate(subject, description);
     if (Object.keys(localErrors).length > 0) {
       setErrors(localErrors);
       return;
     }
     setErrors({});
+
+    const payload: CreateTicketRequest = {
+      subject: subject.trim(),
+      description: description.trim(),
+      // Category & priority are intentionally omitted — the AI triage engine
+      // running on Google Cloud detects them automatically from description keywords.
+      category: "" as CreateTicketRequest["category"],
+      priority: "Medium",
+    };
 
     setSubmitting(true);
     try {
@@ -71,11 +68,11 @@ export function NewTicket() {
       toast.push(
         "success",
         "Ticket created",
-        `Reference #${ticket.ticketNumber} · status ${ticket.status}`,
+        `Reference #${ticket.ticketNumber} · AI triage complete`,
       );
     } catch (err) {
       if (err instanceof ApiError && err.kind === "validation" && err.fieldErrors) {
-        setErrors(err.fieldErrors);
+        setErrors(err.fieldErrors as FormErrors);
         setServerError(err.message);
       } else {
         setServerError(describeError(err));
@@ -93,8 +90,8 @@ export function NewTicket() {
           <div className="page-title-block">
             <h1 className="page-title">Ticket submitted</h1>
             <p className="page-subtitle">
-              Your request was stored in Cloud Firestore and a routing message was published to
-              Cloud Pub/Sub.
+              Your request has been stored in Google Cloud Firestore. Our AI triage engine
+              has automatically categorized, prioritized, and assigned your ticket to an agent.
             </p>
           </div>
         </div>
@@ -105,12 +102,20 @@ export function NewTicket() {
           </div>
           <div className="receipt-label">Your ticket reference</div>
           <div className="receipt-ref">#{created.ticketNumber}</div>
-          <div style={{ margin: "10px 0 4px" }}>
+          <div style={{ margin: "10px 0 4px", display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
             <StatusBadge status={created.status} />
+            {created.urgencyScore !== undefined && <UrgencyBadge score={created.urgencyScore} />}
+            {created.slaDueUtc && <SlaBadge slaDueUtc={created.slaDueUtc} />}
           </div>
+          {created.category && (
+            <p className="muted small" style={{ marginTop: 8 }}>
+              🤖 AI detected category: <strong>{created.category}</strong>
+              {created.assignedTeam && <> · Assigned to: <strong>{created.assignedTeam}</strong></>}
+              {created.assignedAgentName && <> ({created.assignedAgentName})</>}
+            </p>
+          )}
           <p className="muted small" style={{ maxWidth: 460, margin: "8px auto 0" }}>
-            “{created.subject}” — we&apos;ll notify you when an agent is assigned.
-            Automated routing runs in the background via the Service Bus queue.
+            "{created.subject}" — you'll be notified when your agent responds.
           </p>
           <div className="receipt-actions">
             <button
@@ -125,8 +130,6 @@ export function NewTicket() {
                 setCreated(null);
                 setSubject("");
                 setDescription("");
-                setCategory("");
-                setPriority("Medium");
               }}
             >
               Submit another
@@ -144,9 +147,37 @@ export function NewTicket() {
         <div className="page-title-block">
           <h1 className="page-title">New support ticket</h1>
           <p className="page-subtitle">
-            Describe the issue — the system will validate it, store it in the cloud, and
-            route it to the right team automatically.
+            Describe your issue — our AI engine will automatically detect the category,
+            set the priority, and route it to the right team.
           </p>
+        </div>
+      </div>
+
+      {/* AI Info Banner */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)",
+          border: "1px solid #bfdbfe",
+          borderRadius: 10,
+          padding: "12px 16px",
+          marginBottom: 16,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 12,
+        }}
+      >
+        <span style={{ fontSize: 20 }}>🤖</span>
+        <div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: "#1e40af", marginBottom: 2 }}>
+            AI-Powered Auto-Triage
+          </div>
+          <div style={{ fontSize: 12.5, color: "#3b82f6", lineHeight: 1.5 }}>
+            Our NLP engine reads your description and automatically assigns:{" "}
+            <strong>Category</strong> (Billing / Technical / Account / Shipping) ·{" "}
+            <strong>Priority</strong> (based on urgency keywords) ·{" "}
+            <strong>Agent</strong> (least-loaded from qualified team) ·{" "}
+            <strong>SLA deadline</strong>. You don't need to fill any of these manually.
+          </div>
         </div>
       </div>
 
@@ -182,16 +213,24 @@ export function NewTicket() {
             </div>
 
             <div className="field">
-              <label htmlFor="description">Description</label>
+              <label htmlFor="description">
+                Description
+                <span
+                  style={{ fontSize: 11, fontWeight: 400, color: "#64748b", marginLeft: 8 }}
+                >
+                  — Tip: include words like "payment", "login", "broken", "shipment" for better AI detection
+                </span>
+              </label>
               <textarea
                 id="description"
                 className={errors.description ? "invalid" : ""}
-                placeholder="What happened? Include steps to reproduce, error messages, and what you expected."
+                placeholder="What happened? Describe the issue in detail — our AI reads this to auto-categorize and prioritize your ticket."
                 value={description}
                 maxLength={DESC_MAX}
                 onChange={(e) => setDescription(e.target.value)}
                 aria-invalid={!!errors.description}
                 aria-describedby={errors.description ? "desc-err" : "desc-hint"}
+                style={{ minHeight: 120 }}
               />
               {errors.description ? (
                 <div className="field-error" id="desc-err">
@@ -204,66 +243,11 @@ export function NewTicket() {
               )}
             </div>
 
-            <div className="field-row">
-              <div className="field">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label htmlFor="category">Category</label>
-                  <span className="small muted" style={{ fontSize: 11, color: "var(--accent)" }}>
-                    ✨ Auto-detected if unselected
-                  </span>
-                </div>
-                <select
-                  id="category"
-                  className={errors.category ? "invalid" : ""}
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  aria-invalid={!!errors.category}
-                >
-                  <option value="">⚡ Auto-Detect from description (AI Triage)</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                {errors.category && (
-                  <div className="field-error">{errors.category}</div>
-                )}
-                <div className="hint">
-                  Keywords like "payment", "password", "shipment", "features" automatically categorize your ticket.
-                </div>
-              </div>
-
-              <div className="field">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label htmlFor="priority">Initial Priority</label>
-                  <span className="small muted" style={{ fontSize: 11, color: "var(--primary)" }}>
-                    🧠 Weights calculated automatically
-                  </span>
-                </div>
-                <select
-                  id="priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value)}
-                >
-                  {PRIORITIES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-                <div className="hint">
-                  The automated triage engine scans urgency words to determine final SLA & routing priority.
-                </div>
-              </div>
-            </div>
-
             <div className="divider" />
 
-            <div className="flex" style={{ justifyContent: "space-between" }}>
+            <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
               <span className="muted small">
-                Submitting sends <code>POST /api/tickets</code> to the deployed Google
-                Cloud API — no data is simulated.
+                Sends <code>POST /api/tickets</code> to Google Cloud Run — no data is simulated.
               </span>
               <div className="flex">
                 <button
