@@ -91,6 +91,17 @@ export function Tickets() {
             <Icon name="refresh" size={14} />
             Refresh
           </button>
+          {!isCustomer && (
+            <button
+              className="btn"
+              onClick={() => {
+                window.location.href = "/api/tickets/export/csv";
+              }}
+              title="Export all tickets and AI triage metrics to CSV"
+            >
+              📥 Export CSV
+            </button>
+          )}
           {(isCustomer || activeRole === "admin") && (
             <button className="btn btn-primary" onClick={() => navigate("/tickets/new")}>
               <Icon name="plus" size={14} />

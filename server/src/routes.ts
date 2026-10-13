@@ -280,6 +280,30 @@ apiRouter.post("/tickets/:id/resolve", (req: AuthRequest, res: Response) => {
   res.json(updated);
 });
 
+/** GET /api/tickets/export/csv — Enterprise CSV Audit Export */
+apiRouter.get("/tickets/export/csv", requireRole("agent", "admin"), (req: AuthRequest, res: Response) => {
+  const allTickets = store.getTickets();
+  const headers = ["TicketNumber", "Subject", "Category", "Priority", "Status", "AssignedTeam", "UrgencyScore", "Sentiment", "CreatedDate", "ResolvedDate"];
+  const rows = allTickets.map((t) => [
+    `"${t.ticketNumber}"`,
+    `"${t.subject.replace(/"/g, '""')}"`,
+    `"${t.category}"`,
+    `"${t.priority}"`,
+    `"${t.status}"`,
+    `"${t.assignedTeam || 'Unassigned'}"`,
+    `"${t.urgencyScore || 0}"`,
+    `"${t.sentiment || 'Neutral'}"`,
+    `"${t.createdAtUtc}"`,
+    `"${t.resolvedAtUtc || ''}"`,
+  ]);
+
+  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="supporthub-tickets-${new Date().toISOString().split("T")[0]}.csv"`);
+  res.send(csv);
+});
+
 /** GET /api/reports/summary — Agent / Admin only */
 apiRouter.get("/reports/summary", requireRole("agent", "admin"), (req: AuthRequest, res: Response) => {
   const windowDays = Number(req.query.windowDays) || 30;
