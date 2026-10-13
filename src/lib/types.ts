@@ -1,7 +1,7 @@
 /**
  * Domain types for the support platform.
  * These mirror the schemas defined in the requirements roadmap
- * (Cosmos DB ticket / message documents) and the Azure Functions API contract.
+ * (Firestore ticket / message documents) and the Google Cloud API contract.
  */
 
 export const TICKET_STATUSES = [
@@ -62,6 +62,23 @@ export interface Ticket {
   source: string;
   tags?: string[];
   messages?: TicketMessage[];
+  urgencyScore?: number;
+  sentiment?: "Positive" | "Neutral" | "Negative" | "Frustrated";
+  slaDueUtc?: string;
+  slaBreached?: boolean;
+  recommendedReply?: string;
+  rootCauseAnalysis?: string;
+  confidenceScore?: number;
+  suggestedAction?: string;
+}
+
+export interface TeamCapacity {
+  team: string;
+  totalAgents: number;
+  activeAgents: number;
+  activeTickets: number;
+  loadPercent: number;
+  status: "Optimal" | "Moderate" | "Congested";
 }
 
 /** POST /api/tickets request body */
@@ -90,7 +107,7 @@ export interface TicketListParams {
 
 /**
  * GET /api/reports/summary response (FR-08).
- * All values must be computed server-side from stored Cosmos DB tickets.
+ * All values must be computed server-side from stored Firestore tickets.
  */
 export interface ReportSummary {
   windowDays: number;
@@ -106,6 +123,9 @@ export interface ReportSummary {
   byTeam: Record<string, number>;
   averageResolutionTimeHours: number | null;
   volumeOverTime: { date: string; count: number }[];
+  slaComplianceRate?: number;
+  breachedSlaCount?: number;
+  avgUrgencyScore?: number;
 }
 
 /** GET /api/routing/rules — the documented routing rule set (FR-05). */
@@ -116,7 +136,7 @@ export interface RoutingRule {
   description?: string;
 }
 
-/** Roles returned by Static Web Apps Easy Auth (/.auth/me). */
+/** Roles mapped from Google Identity / backend RBAC. */
 export type AppRole = "customer" | "agent" | "admin";
 
 export interface AuthUser {
@@ -124,6 +144,7 @@ export interface AuthUser {
   email: string;
   name: string;
   roles: AppRole[];
+  avatarUrl?: string;
 }
 
 export type AuthState =
@@ -131,3 +152,17 @@ export type AuthState =
   | { status: "authenticated"; user: AuthUser }
   | { status: "anonymous" }
   | { status: "unavailable" };
+
+export interface UserProfile {
+  userId: string;
+  email: string;
+  name: string;
+  role: AppRole;
+  avatarUrl?: string;
+  joinedAtUtc: string;
+  totalTickets: number;
+  openTickets: number;
+  resolvedTickets: number;
+  lastActiveUtc?: string;
+  assignedTeam?: string;
+}

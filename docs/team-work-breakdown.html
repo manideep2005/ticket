@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SupportHub — Master Project Specification & 5-Member Team Allocation</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --primary: #2563eb;
+      --accent: #0284c7;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 36px;
+      text-align: center;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 28px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 5px 14px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    h1 {
+      font-size: 34px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 10px;
+    }
+    p.lead {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    .section-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 40px 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-left: 4px solid var(--primary);
+      padding-left: 12px;
+    }
+    .grid-features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+      margin-bottom: 30px;
+    }
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .feature-card h3 {
+      font-size: 16.5px;
+      color: #1e293b;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .feature-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #f1f5f9;
+      color: #475569;
+      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    /* Architecture Box */
+    .arch-box {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 30px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13.5px;
+      background: #f8fafc;
+      overflow-x: auto;
+      line-height: 1.7;
+    }
+
+    /* Roles Section */
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+      margin-bottom: 40px;
+    }
+    .role-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 22px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .role-card.c-customer { border-top: 4px solid var(--accent); }
+    .role-card.c-agent { border-top: 4px solid var(--success); }
+    .role-card.c-admin { border-top: 4px solid var(--danger); }
+    .role-card h3 {
+      font-size: 18px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .role-badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .role-card ul {
+      margin-top: 12px;
+      padding-left: 20px;
+      font-size: 13.5px;
+      color: #334155;
+    }
+    .role-card ul li { margin-bottom: 7px; }
+
+    /* Team Breakdown Section */
+    .team-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    .member-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .member-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .member-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .member-badge {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .task-list {
+      list-style-type: none;
+      margin-top: 10px;
+    }
+    .task-list li {
+      position: relative;
+      padding-left: 24px;
+      margin-bottom: 8px;
+      font-size: 14px;
+      color: #334155;
+    }
+    .task-list li::before {
+      content: "✔";
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+      font-weight: bold;
+    }
+
+    footer {
+      margin-top: 50px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge">Google Cloud Platform Architecture · Official Project Spec</span>
+      <h1>SupportHub Master Specification & Team Roles</h1>
+      <p class="lead">Complete feature index, Google Cloud Functions architecture, role-based security permissions, and detailed 5-member project division.</p>
+    </header>
+
+    <!-- SECTION 1: MASTER FEATURE LIST -->
+    <h2 class="section-title">1. High-Level Platform Features</h2>
+    <div class="grid-features">
+      
+      <div class="feature-card">
+        <h3>🧠 Natural Language Auto-Triage</h3>
+        <p>Parses ticket subject & description keywords (payment, login, shipping, bug, feature) to automatically determine the correct department without user input.</p>
+        <span class="feature-tag">NLP / Heuristic AI</span>
+      </div>
+
+      <div class="feature-card">
+        <h3>🔥 Weighted Urgency & Sentiment Scoring</h3>
+        <p>Scans outage and incident words (outage, crash, data loss, urgent) to compute an Urgency Score (1–100) and sentiment tone (Frustrated, Negative, Neutral, Positive).</p>
+        <span class="feature-tag">Smart Scoring Algorithm</span>
+      </div>
+
+      <div class="feature-card">
+        <h3>⚖️ Active Caseload Agent Balancer</h3>
+        <p>Evaluates active ticket counts per agent across specialized teams in real time and automatically routes new tickets to the least-loaded engineer.</p>
+        <span class="feature-tag">Dynamic Load Balancing</span>
+      </div>
+
+      <div class="feature-card">
+        <h3>⏱️ SLA Breach Predictor & Live Badges</h3>
+        <p>Calculates resolution deadlines based on severity (Critical: 2h, High: 6h, Medium: 24h). Displays live countdown tags: <em>Due in Xh</em>, <em>Due &lt; 1h</em>, <em>SLA Breached</em>, <em>SLA Met</em>.</p>
+        <span class="feature-tag">SLA Compliance</span>
+      </div>
+
+      <div class="feature-card">
+        <h3>⚡ 1-Click AI Suggested Response</h3>
+        <p>Generates pre-composed troubleshooting guidance for support agents tailored to the ticket's category and triage severity flags with a single click.</p>
+        <span class="feature-tag">Agent Productivity</span>
+      </div>
+
+      <div class="feature-card">
+        <h3>📥 Enterprise CSV Audit Export</h3>
+        <p>One-click audit export downloading ticket IDs, urgency scores, categories, timestamps, and resolution metrics in standardized CSV format.</p>
+        <span class="feature-tag">Data Export & Audit</span>
+      </div>
+
+      <div class="feature-card">
+        <h3>📊 Real-Time SLA & KPI Dashboard</h3>
+        <p>Calculates organization-wide SLA compliance rates (%), average resolution duration, and daily volume over 7, 30, and 90-day historical windows.</p>
+        <span class="feature-tag">Business Analytics</span>
+      </div>
+
+      <div class="feature-card">
+        <h3>🔄 Instant Multi-Role Switcher</h3>
+        <p>Interactive role switcher in the sidebar allowing live evaluation across Customer, Support Agent, and Admin roles with synchronized backend token verification.</p>
+        <span class="feature-tag">RBAC System</span>
+      </div>
+
+    </div>
+
+    <!-- SECTION 2: GOOGLE CLOUD FUNCTIONS & ARCHITECTURE -->
+    <h2 class="section-title">2. Google Cloud Functions & Infrastructure Architecture</h2>
+    <div class="arch-box">
+<strong>[Google Cloud Platform Stack]</strong><br>
+├── <strong>Google Cloud Run (2nd Gen Container):</strong> Hosts Express API & static frontend on Port 8080. Zero idle scaling.<br>
+├── <strong>HTTP Cloud Function (apiRouter):</strong> Exposes REST endpoints; validates Google OAuth 2.0 cryptographic JWT tokens.<br>
+├── <strong>Google Cloud Pub/Sub ('ticket-created' Topic):</strong> Decouples ticket intake from asynchronous automated routing.<br>
+├── <strong>Event-Driven Background Cloud Function:</strong> Pulls from Pub/Sub, executes Caseload Balancing, sets SLA deadlines.<br>
+├── <strong>Google Cloud Firestore (Native Mode):</strong> NoSQL durable document store (collections: tickets, messages, users).<br>
+└── <strong>Google Identity Services (OIDC):</strong> Google OAuth 2.0 Web Client for cryptographically signed user sessions.
+    </div>
+
+    <!-- SECTION 3: DETAILED ROLE SPECIFICATIONS -->
+    <h2 class="section-title">3. Detailed Role Permissions & Security Matrix</h2>
+    <div class="roles-grid">
+      
+      <div class="role-card c-customer">
+        <h3>Customer Role <span class="role-badge" style="background: #e0f2fe; color: #0369a1;">User Role</span></h3>
+        <p style="color: var(--text-muted); font-size: 13px;">External or internal client submitting service requests.</p>
+        <ul>
+          <li><strong>Ticket Submission:</strong> Can create new tickets with auto-categorization.</li>
+          <li><strong>Data Privacy Isolation:</strong> Can ONLY view and search their own tickets (scoped by customerId).</li>
+          <li><strong>Conversation Thread:</strong> Can view messages and reply to support agents.</li>
+          <li><strong>Resolution:</strong> Can mark their own resolved issues as closed.</li>
+          <li><strong>Restricted:</strong> Cannot access agent queues, admin routing rules, or organizational KPI reports.</li>
+        </ul>
+      </div>
+
+      <div class="role-card c-agent">
+        <h3>Support Agent Role <span class="role-badge" style="background: #dcfce7; color: #15803d;">Staff Role</span></h3>
+        <p style="color: var(--text-muted); font-size: 13px;">Engineering & Support specialists handling triage queues.</p>
+        <ul>
+          <li><strong>Full Queue Visibility:</strong> Can view tickets across all teams and categories.</li>
+          <li><strong>Lifecycle Control:</strong> Can advance tickets: <em>Assigned ➔ InProgress ➔ WaitingForCustomer ➔ Resolved</em>.</li>
+          <li><strong>SLA Tracking:</strong> Real-time alerts on tickets approaching or breaching resolution targets.</li>
+          <li><strong>1-Click AI Responses:</strong> Insert automated troubleshooting templates based on triage tags.</li>
+          <li><strong>CSV Data Export:</strong> Can export full ticket archives for audit purposes.</li>
+        </ul>
+      </div>
+
+      <div class="role-card c-admin">
+        <h3>Admin Role <span class="role-badge" style="background: #fee2e2; color: #b91c1c;">Executive Role</span></h3>
+        <p style="color: var(--text-muted); font-size: 13px;">System administrators and platform engineering leads.</p>
+        <ul>
+          <li><strong>Routing Rule Governance:</strong> Configure category-to-team assignments and priority floors.</li>
+          <li><strong>Executive Analytics:</strong> Access organizational SLA Compliance Rates, Mean Resolution Times, and volume charts.</li>
+          <li><strong>Team Caseload Audit:</strong> Monitor workload balance across engineering departments.</li>
+          <li><strong>Full Override Privileges:</strong> Reassign agents, modify ticket states, and manage system parameters.</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- SECTION 4: 5-MEMBER TEAM RESPONSIBILITIES -->
+    <h2 class="section-title">4. 5-Member Team Work Division</h2>
+    <div class="team-grid">
+
+      <!-- Manideep -->
+      <div class="member-card">
+        <div class="member-head">
+          <div class="member-title">1. Manideep — Project Lead & Cloud Architect</div>
+          <span class="member-badge">Cloud Lead</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>Cloud Run Deployment:</strong> Managed container build and Cloud Run service <code>supporthub</code> on project <code>ticket-511417</code>.</li>
+          <li><strong>DevOps & Git Administration:</strong> Merging branch <code>feat/migrate-to-gcp</code> into <code>main</code> and maintaining zero-error builds.</li>
+          <li><strong>Google OAuth Whitelisting:</strong> Authorized Javascript Origins and Redirect URIs in GCP Console.</li>
+          <li><strong>Project Presentation:</strong> Leading the architectural demo explaining the Azure-to-GCP Cloud Run migration.</li>
+        </ul>
+      </div>
+
+      <!-- Harsha -->
+      <div class="member-card">
+        <div class="member-head">
+          <div class="member-title">2. Harsha — Backend Engineer & Intelligent Routing Lead</div>
+          <span class="member-badge">Backend & AI</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>NLP Auto-Triage:</strong> Engineered description keyword extraction in <code>server/src/intelligence.ts</code>.</li>
+          <li><strong>Caseload Balancer:</strong> Built the dynamic agent load-balancing algorithm in <code>server/src/routing.ts</code>.</li>
+          <li><strong>Token Cryptography:</strong> Implemented Google public key verification via <code>google-auth-library</code>.</li>
+          <li><strong>API Performance:</strong> Optimized CRUD routes, CSV exports, and SLA compliance aggregations.</li>
+        </ul>
+      </div>
+
+      <!-- Thanooj -->
+      <div class="member-card">
+        <div class="member-head">
+          <div class="member-title">3. Thanooj — Frontend UI/UX Specialist</div>
+          <span class="member-badge">Frontend UI/UX</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>Light Enterprise Theme:</strong> Engineered clean slate styling and high-contrast badges in <code>global.css</code>.</li>
+          <li><strong>Live SLA & Urgency UI:</strong> Created responsive color badges (Urgency: 1–100, Due in Xh, SLA Breached).</li>
+          <li><strong>Ticket Submission UX:</strong> Designed description-based auto-categorization guidance and real-time character counters.</li>
+          <li><strong>Responsive Design:</strong> Tested mobile drawer navigation and fluid grid layouts across all breakpoints.</li>
+        </ul>
+      </div>
+
+      <!-- Bhargav -->
+      <div class="member-card">
+        <div class="member-head">
+          <div class="member-title">4. Bhargav — RBAC, Identity & User Journey Specialist</div>
+          <span class="member-badge">RBAC & Security</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>Multi-Role Switcher:</strong> Implemented the persistent role selector synchronizing Customer, Agent, and Admin roles.</li>
+          <li><strong>Data Privacy Enforcement:</strong> Verified strict isolation rules preventing customers from seeing other customer records.</li>
+          <li><strong>Ticket Lifecycle Stepper:</strong> Programmed visual and backend-enforced state transitions (New ➔ InProgress ➔ Resolved).</li>
+          <li><strong>Sign-In Guidance:</strong> Authored role descriptions and Google Identity OAuth explanations on the portal home.</li>
+        </ul>
+      </div>
+
+      <!-- Mohan -->
+      <div class="member-card">
+        <div class="member-head">
+          <div class="member-title">5. Mohan — QA Engineer, Analytics Specialist & Documentation Lead</div>
+          <span class="member-badge">QA & Analytics</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>SLA Analytics Engine:</strong> Engineered server-side calculations for SLA Compliance Rate % and volume charts.</li>
+          <li><strong>End-to-End Test Suite:</strong> Ran test scenarios verifying automatic priority elevation and category classification.</li>
+          <li><strong>Documentation Author:</strong> Maintained <code>docs/gcp-setup-guide.md</code> and master HTML specifications.</li>
+          <li><strong>Error Resilience:</strong> Tested network offline states and 401/403 security feedback loops.</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <footer>
+      <p>SupportHub · Cloud Support Portal · Google Cloud Platform Migration · Ready for Final Evaluation</p>
+    </footer>
+  </div>
+</body>
+</html>
