@@ -321,15 +321,25 @@ export function TicketDetail() {
                       background: "#16a34a",
                       color: "#fff",
                       border: "none",
-                      fontSize: 12,
+                      fontSize: 12.5,
                       fontWeight: 600,
-                      padding: "6px 12px",
+                      padding: "7px 14px",
                       borderRadius: 6,
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                     }}
                     onClick={() => {
-                      if (ticket.recommendedReply) {
-                        setReplyText(ticket.recommendedReply);
-                        toast.push("success", "Action Executed", "AI suggested template inserted into conversation.");
+                      const textToInsert =
+                        ticket.recommendedReply ||
+                        (ticket.suggestedAction
+                          ? `[Action Applied: ${ticket.suggestedAction}]\n\nWe have performed automated diagnosis and initiated corrective remediation for this ticket.`
+                          : "We have reviewed your request and initiated diagnostic remediation.");
+                      setReplyText(textToInsert);
+                      toast.push("success", "Remediation Applied", "AI remediation template loaded into conversation reply box.");
+                      const textarea = document.getElementById("reply");
+                      if (textarea) {
+                        textarea.scrollIntoView({ behavior: "smooth", block: "center" });
+                        textarea.focus();
                       }
                     }}
                   >
