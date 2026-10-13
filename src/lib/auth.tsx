@@ -295,6 +295,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const enterPreviewMode = useCallback(() => setPreviewMode(true), []);
 
   const setRole = useCallback((newRole: AppRole) => {
+    try {
+      window.sessionStorage.setItem("active_role_override", newRole);
+    } catch {
+      // ignore storage access issues
+    }
     setState((prev) => {
       if (prev.status === "authenticated" && prev.user) {
         return {

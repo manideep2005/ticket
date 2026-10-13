@@ -5,33 +5,33 @@
    ========================================================================== */
 
 :root {
-  /* Modern High-End Cloud Console Aesthetic */
-  --bg: #0b0f17;
-  --surface: #111827;
-  --surface-2: #161f30;
-  --surface-3: #1f293d;
-  --border: #232f45;
-  --border-strong: #374763;
-  --text: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+  /* Clean, Professional Enterprise Light Theme */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
 
-  /* Brand Vibrant Google Cloud Blue & Indigo */
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-soft: rgba(59, 130, 246, 0.15);
-  --primary-soft-text: #60a5fa;
-  --accent: #06b6d4;
+  /* Brand Colors */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --primary-soft-text: #1d4ed8;
+  --accent: #0284c7;
 
   /* Semantic */
-  --success: #10b981;
-  --success-soft: rgba(16, 185, 129, 0.15);
-  --warning: #f59e0b;
-  --warning-soft: rgba(245, 158, 11, 0.15);
-  --danger: #ef4444;
-  --danger-soft: rgba(239, 68, 68, 0.15);
-  --info: #38bdf8;
-  --info-soft: rgba(56, 189, 248, 0.15);
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+  --info: #0284c7;
+  --info-soft: #f0f9ff;
 
   /* Shape / elevation */
   --radius-sm: 6px;
@@ -401,20 +401,20 @@ button { font-family: inherit; }
   flex-shrink: 0;
 }
 
-/* Status palette - Dark Mode Optimized */
-.status-New { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.35); }
-.status-Queued { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35); }
-.status-Assigned { background: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.35); }
-.status-InProgress { background: rgba(6, 182, 212, 0.15); color: #38bdf8; border-color: rgba(6, 182, 212, 0.35); }
-.status-WaitingForCustomer { background: rgba(249, 115, 22, 0.15); color: #fb923c; border-color: rgba(249, 115, 22, 0.35); }
-.status-Resolved { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.35); }
-.status-Closed { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border-color: rgba(107, 114, 128, 0.35); }
+/* Status palette - Light Theme */
+.status-New { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.status-Queued { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.status-Assigned { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+.status-InProgress { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+.status-WaitingForCustomer { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+.status-Resolved { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
+.status-Closed { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 
-/* Priority palette - Dark Mode Optimized */
-.priority-Low { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border-color: rgba(107, 114, 128, 0.35); }
-.priority-Medium { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.35); }
-.priority-High { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35); }
-.priority-Critical { background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: rgba(239, 68, 68, 0.4); }
+/* Priority palette - Light Theme */
+.priority-Low { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+.priority-Medium { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.priority-High { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.priority-Critical { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
 
 .role-badge {
   display: inline-block;
@@ -424,12 +424,12 @@ button { font-family: inherit; }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
-.role-badge.agent { background: rgba(6, 182, 212, 0.2); color: #22d3ee; border-color: rgba(6, 182, 212, 0.4); }
-.role-badge.admin { background: rgba(239, 68, 68, 0.2); color: #f87171; border-color: rgba(239, 68, 68, 0.4); }
+.role-badge.agent { background: #ecfeff; color: #0891b2; border-color: #a5f3fc; }
+.role-badge.admin { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
 
 /* --------------------------------------------------------------------------
    Tables & ticket rows

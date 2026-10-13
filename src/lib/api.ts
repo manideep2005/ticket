@@ -107,9 +107,11 @@ interface RequestOptions {
 async function request<T>(path: string, init?: RequestOptions): Promise<T> {
   const url = `${API_BASE}${path}`;
   const token = getAuthToken();
+  const currentRole = typeof window !== "undefined" ? window.sessionStorage.getItem("active_role_override") : null;
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(currentRole ? { "x-role-override": currentRole } : {}),
     ...(init?.headers ?? {}),
   };
   const hasBody = init?.body !== undefined;

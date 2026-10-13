@@ -9,7 +9,16 @@ export interface AuthRequest extends Request {
   user?: AuthenticatedUser;
 }
 
-function resolveUserRole(email: string, payloadRole?: string): AppRole {
+function resolveUserRole(email: string, payloadRole?: string, roleOverrideHeader?: string | string[]): AppRole {
+  // If user explicitly switched their role in the frontend for evaluation/testing
+  if (roleOverrideHeader) {
+    const override = Array.isArray(roleOverrideHeader) ? roleOverrideHeader[0] : roleOverrideHeader;
+    const lower = override.toLowerCase();
+    if (lower === "admin" || lower === "agent" || lower === "customer") {
+      return lower as AppRole;
+    }
+  }
+
   if (payloadRole === "admin" || payloadRole === "agent" || payloadRole === "customer") {
     return payloadRole;
   }
@@ -62,11 +71,12 @@ export async function requireAuth(
         if (payload && payload.sub) {
           const email = payload.email || "";
           const name = payload.name || email.split("@")[0] || payload.sub.slice(0, 8);
+          const roleOverride = req.headers["x-role-override"];
           req.user = {
             userId: payload.sub,
             email,
             name,
-            role: resolveUserRole(email, (payload as Record<string, unknown>).role as string),
+            role: resolveUserRole(email, (payload as Record<string, unknown>).role as string, roleOverride),
             avatarUrl: payload.picture,
           };
           next();
@@ -86,11 +96,12 @@ export async function requireAuth(
       if (decoded && decoded.sub) {
         const email = decoded.email || "";
         const name = decoded.name || email.split("@")[0] || decoded.sub.slice(0, 8);
+        const roleOverride = req.headers["x-role-override"];
         req.user = {
           userId: decoded.sub,
           email,
           name,
-          role: resolveUserRole(email, decoded.role),
+          role: resolveUserRole(email, decoded.role, roleOverride),
           avatarUrl: decoded.picture,
         };
         next();
