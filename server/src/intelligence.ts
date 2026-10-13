@@ -1,6 +1,7 @@
 import type { Category, Priority, Ticket } from "./types.ts";
 
 export interface TriageAnalysis {
+  suggestedCategory: Category;
   suggestedPriority: Priority;
   urgencyScore: number; // 0 to 100
   sentiment: "Positive" | "Neutral" | "Negative" | "Frustrated";
@@ -75,14 +76,30 @@ export function analyzeTicketIntelligence(
 
   let urgencyScore = 30; // base score
 
+  // 1. Automatic Category Detection (from handwritten notes: 'automatically read words from description and categorize')
+  let detectedCategory: Category = category;
+  if (!detectedCategory || detectedCategory === "General") {
+    if (text.includes("payment") || text.includes("invoice") || text.includes("charge") || text.includes("refund") || text.includes("bill") || text.includes("money") || text.includes("credit card") || text.includes("subscription")) {
+      detectedCategory = "Billing";
+    } else if (text.includes("password") || text.includes("login") || text.includes("auth") || text.includes("account") || text.includes("sign in") || text.includes("2fa") || text.includes("security") || text.includes("email verified")) {
+      detectedCategory = "Account";
+    } else if (text.includes("ship") || text.includes("delivery") || text.includes("order") || text.includes("tracking") || text.includes("package") || text.includes("courier")) {
+      detectedCategory = "Shipping";
+    } else if (text.includes("feature") || text.includes("confused") || text.includes("understand the features") || text.includes("how to use") || text.includes("documentation") || text.includes("guide") || text.includes("where is")) {
+      detectedCategory = "General";
+    } else if (text.includes("api") || text.includes("database") || text.includes("server") || text.includes("error") || text.includes("crash") || text.includes("bug") || text.includes("timeout") || text.includes("code") || text.includes("slow")) {
+      detectedCategory = "Technical";
+    }
+  }
+
   // Category influence
-  if (category === "Account") {
+  if (detectedCategory === "Account") {
     detectedTags.push("Security/Auth");
     urgencyScore += 15;
-  } else if (category === "Billing") {
+  } else if (detectedCategory === "Billing") {
     detectedTags.push("Finance");
     urgencyScore += 10;
-  } else if (category === "Technical") {
+  } else if (detectedCategory === "Technical") {
     detectedTags.push("Infrastructure");
     urgencyScore += 10;
   }
@@ -183,6 +200,7 @@ export function analyzeTicketIntelligence(
   }
 
   return {
+    suggestedCategory: detectedCategory,
     suggestedPriority,
     urgencyScore,
     sentiment,

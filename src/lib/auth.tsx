@@ -125,6 +125,7 @@ interface AuthContextValue {
   signOut: () => void;
   enterPreviewMode: () => void;
   setPreviewRole: (role: AppRole) => void;
+  setRole: (role: AppRole) => void;
   hasRole: (...roles: AppRole[]) => boolean;
   handleCredentialResponse: (credential: string) => void;
 }
@@ -293,6 +294,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const enterPreviewMode = useCallback(() => setPreviewMode(true), []);
 
+  const setRole = useCallback((newRole: AppRole) => {
+    setState((prev) => {
+      if (prev.status === "authenticated" && prev.user) {
+        return {
+          ...prev,
+          user: {
+            ...prev.user,
+            roles: [newRole],
+          },
+        };
+      }
+      return prev;
+    });
+    setPreviewRole(newRole);
+  }, []);
+
   const value = useMemo<AuthContextValue>(() => {
     const user = state.status === "authenticated" ? state.user : null;
     const activeRole: AppRole | null = user
@@ -311,6 +328,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       enterPreviewMode,
       setPreviewRole,
+      setRole,
       hasRole: (...roles) => (activeRole ? roles.includes(activeRole) : false),
       handleCredentialResponse,
     };
@@ -319,9 +337,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     previewMode,
     previewRole,
     token,
+    googleClientId,
     signIn,
     signOut,
     enterPreviewMode,
+    setRole,
     handleCredentialResponse,
   ]);
 

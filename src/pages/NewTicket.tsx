@@ -29,7 +29,7 @@ function validate(form: CreateTicketRequest): FormErrors {
     errors.description = "Please describe the issue in at least 20 characters.";
   else if (description.length > DESC_MAX)
     errors.description = `Description must be ${DESC_MAX} characters or fewer.`;
-  if (!form.category) errors.category = "Choose a category so the ticket can be routed.";
+  // Category can now be auto-detected by the AI triage engine if left blank
   return errors;
 }
 
@@ -206,7 +206,12 @@ export function NewTicket() {
 
             <div className="field-row">
               <div className="field">
-                <label htmlFor="category">Category</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label htmlFor="category">Category</label>
+                  <span className="small muted" style={{ fontSize: 11, color: "var(--accent)" }}>
+                    ✨ Auto-detected if unselected
+                  </span>
+                </div>
                 <select
                   id="category"
                   className={errors.category ? "invalid" : ""}
@@ -214,7 +219,7 @@ export function NewTicket() {
                   onChange={(e) => setCategory(e.target.value)}
                   aria-invalid={!!errors.category}
                 >
-                  <option value="">Select a category…</option>
+                  <option value="">⚡ Auto-Detect from description (AI Triage)</option>
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -225,12 +230,17 @@ export function NewTicket() {
                   <div className="field-error">{errors.category}</div>
                 )}
                 <div className="hint">
-                  The category decides which team the ticket is routed to.
+                  Keywords like "payment", "password", "shipment", "features" automatically categorize your ticket.
                 </div>
               </div>
 
               <div className="field">
-                <label htmlFor="priority">Priority</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label htmlFor="priority">Initial Priority</label>
+                  <span className="small muted" style={{ fontSize: 11, color: "var(--primary)" }}>
+                    🧠 Weights calculated automatically
+                  </span>
+                </div>
                 <select
                   id="priority"
                   value={priority}
@@ -243,9 +253,7 @@ export function NewTicket() {
                   ))}
                 </select>
                 <div className="hint">
-                  {priority === "Critical"
-                    ? "Critical issues are routed to the on-call team first."
-                    : "Priority affects routing order for the support team."}
+                  The automated triage engine scans urgency words to determine final SLA & routing priority.
                 </div>
               </div>
             </div>

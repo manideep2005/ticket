@@ -93,12 +93,12 @@ apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
   }
 
   const validCategories = ["Billing", "Technical", "Account", "Shipping", "General"];
-  if (!category || !validCategories.includes(category)) {
+  if (category && !validCategories.includes(category)) {
     fieldErrors.category = "Please select a valid category.";
   }
 
   const validPriorities = ["Low", "Medium", "High", "Critical"];
-  if (!priority || !validPriorities.includes(priority)) {
+  if (priority && !validPriorities.includes(priority)) {
     fieldErrors.priority = "Please select a valid priority.";
   }
 
@@ -114,13 +114,15 @@ apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
   const id = crypto.randomUUID();
   const ticketNumber = store.getNextTicketNumber();
 
-  // Run Real-Time AI / Heuristic Triage Algorithm
+  // Run Real-Time AI / Heuristic Triage Algorithm (as per user notebook instructions)
   const intelligence = analyzeTicketIntelligence(
     subject,
     description,
-    category as Category,
-    priority as Priority,
+    (category as Category) || "General",
+    (priority as Priority) || "Medium",
   );
+
+  const finalCategory = (category as Category) || intelligence.suggestedCategory;
 
   const newTicket: Ticket = {
     id,
@@ -130,7 +132,7 @@ apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
     customerEmail: user.email,
     subject: subject.trim(),
     description: description.trim(),
-    category: category as Category,
+    category: finalCategory,
     priority: intelligence.suggestedPriority,
     status: "New",
     createdAtUtc: now,

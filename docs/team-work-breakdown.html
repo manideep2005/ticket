@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SupportHub — 5-Member Team Work Breakdown & Project Roadmap</title>
+  <style>
+    :root {
+      --bg: #0b0f17;
+      --card-bg: #111827;
+      --border: #232f45;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #3b82f6;
+      --accent: #06b6d4;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 40px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 30px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #60a5fa, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.lead {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .stat-card h4 { color: var(--text-muted); font-size: 13px; text-transform: uppercase; margin-bottom: 6px; }
+    .stat-card .val { font-size: 26px; font-weight: 700; color: #fff; }
+    
+    .team-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    .member-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      transition: transform 150ms ease, border-color 150ms ease;
+    }
+    .member-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+    .member-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .member-name {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .avatar-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .m1 { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    .m2 { background: linear-gradient(135deg, #10b981, #047857); }
+    .m3 { background: linear-gradient(135deg, #f59e0b, #b45309); }
+    .m4 { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+    .m5 { background: linear-gradient(135deg, #ec4899, #be185d); }
+
+    .role-title { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .member-role-badge {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .tag-cloud {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+    .task-list {
+      list-style-type: none;
+    }
+    .task-list li {
+      position: relative;
+      padding-left: 24px;
+      margin-bottom: 10px;
+      font-size: 14.5px;
+      color: #e2e8f0;
+    }
+    .task-list li::before {
+      content: "✔";
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+      font-weight: bold;
+    }
+    .deliverables {
+      margin-top: 14px;
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 3px solid var(--accent);
+      border-radius: 4px;
+      font-size: 13.5px;
+      color: #94a3b8;
+    }
+    footer {
+      margin-top: 50px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge">Google Cloud Platform Migration · 5-Member Division</span>
+      <h1>SupportHub Team Work Allocation Matrix</h1>
+      <p class="lead">Individual task breakdown, deliverables, and role ownership to finish all project requirements with highest quality and velocity.</p>
+    </header>
+
+    <div class="summary-grid">
+      <div class="stat-card">
+        <h4>Target Platform</h4>
+        <div class="val">Google Cloud</div>
+      </div>
+      <div class="stat-card">
+        <h4>Team Size</h4>
+        <div class="val">5 Members</div>
+      </div>
+      <div class="stat-card">
+        <h4>Architecture</h4>
+        <div class="val">Cloud Run + AI Triage</div>
+      </div>
+      <div class="stat-card">
+        <h4>Live Status</h4>
+        <div class="val" style="color: #10b981;">Deployed ✔</div>
+      </div>
+    </div>
+
+    <div class="team-grid">
+
+      <!-- Member 1: Manideep -->
+      <div class="member-card">
+        <div class="member-header">
+          <div class="member-name">
+            <div class="avatar-icon m1">M</div>
+            <div>
+              <h3>1. Manideep (Project Lead & Cloud Architect)</h3>
+              <div class="role-title">Owner of GitHub & GCP Project Cloud Run Architecture</div>
+            </div>
+          </div>
+          <span class="member-role-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">Cloud Lead</span>
+        </div>
+        <div class="tag-cloud">
+          <span class="tag">Google Cloud Run</span>
+          <span class="tag">OAuth 2.0 Client</span>
+          <span class="tag">Cloud Build CI/CD</span>
+          <span class="tag">Repository Admin</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>Merge Pull Requests:</strong> Review and merge branch <code>feat/migrate-to-gcp</code> into <code>main</code> on GitHub.</li>
+          <li><strong>GCP Service Settings:</strong> Verify Cloud Run service <code>supporthub</code> scaling limits (0–5 instances) and public ingress on <code>ticket-511417</code>.</li>
+          <li><strong>Domain & OAuth Whitelisting:</strong> Add production URLs to Google Cloud Console (Authorized Origins & Redirect URIs).</li>
+          <li><strong>Project Presentation & Final Demo:</strong> Lead the final presentation explaining why the project migrated from Azure to GCP Cloud Run.</li>
+        </ul>
+        <div class="deliverables">
+          <strong>Key Deliverable:</strong> Fully operational Cloud Run production URL + clean GitHub <code>main</code> branch with passing CI.
+        </div>
+      </div>
+
+      <!-- Member 2: Harsha -->
+      <div class="member-card">
+        <div class="member-header">
+          <div class="member-name">
+            <div class="avatar-icon m2">H</div>
+            <div>
+              <h3>2. Harsha (Backend Engineer & Intelligent Routing Lead)</h3>
+              <div class="role-title">Owner of Intelligence Engine, Load Balancing & Server APIs</div>
+            </div>
+          </div>
+          <span class="member-role-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Backend & AI</span>
+        </div>
+        <div class="tag-cloud">
+          <span class="tag">AI Triage Algorithm</span>
+          <span class="tag">Agent Caseload Balancer</span>
+          <span class="tag">Express API Routes</span>
+          <span class="tag">google-auth-library</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>Triage & Sentiment Engine:</strong> Maintain <code>server/src/intelligence.ts</code> keyword weights for automatic category and priority detection.</li>
+          <li><strong>Active Caseload Balancing:</strong> Monitor <code>server/src/routing.ts</code> ensuring tickets are evenly routed to least-loaded agents.</li>
+          <li><strong>Token Signature Validation:</strong> Maintain server-side verification using Google's public keys via <code>google-auth-library</code>.</li>
+          <li><strong>API Contract Adherence:</strong> Ensure endpoints (<code>/api/tickets</code>, <code>/api/reports/summary</code>, <code>/api/config</code>) respond under 200ms.</li>
+        </ul>
+        <div class="deliverables">
+          <strong>Key Deliverable:</strong> Reliable heuristic triage scoring (1–100) and load-balanced agent assignment engine.
+        </div>
+      </div>
+
+      <!-- Member 3: Thanooj -->
+      <div class="member-card">
+        <div class="member-header">
+          <div class="member-name">
+            <div class="avatar-icon m3">T</div>
+            <div>
+              <h3>3. Thanooj (Frontend UI/UX Specialist & Design Systems)</h3>
+              <div class="role-title">Owner of Theme Palette, Reactive Badges & User Experience</div>
+            </div>
+          </div>
+          <span class="member-role-badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">Frontend UI/UX</span>
+        </div>
+        <div class="tag-cloud">
+          <span class="tag">Dark-Slate Theme</span>
+          <span class="tag">SLA Countdown UI</span>
+          <span class="tag">Responsive Drawer</span>
+          <span class="tag">Micro-Interactions</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>Console Theme Polish:</strong> Review <code>src/styles/global.css</code> ensuring high-contrast slate aesthetics across all resolutions.</li>
+          <li><strong>Interactive SLA & Urgency Badges:</strong> Verify color transitions (Green → Yellow → Red Breached) across ticket lists.</li>
+          <li><strong>Mobile & Tablet Responsiveness:</strong> Test the navigation drawer and quick response action buttons on smaller viewports.</li>
+          <li><strong>Form Accessibility:</strong> Ensure form inputs (subject, description, auto-detect category) provide clear visual validation states.</li>
+        </ul>
+        <div class="deliverables">
+          <strong>Key Deliverable:</strong> Polished dark-mode cloud console styling and zero layout-shift UX.
+        </div>
+      </div>
+
+      <!-- Member 4: Bhargav -->
+      <div class="member-card">
+        <div class="member-header">
+          <div class="member-name">
+            <div class="avatar-icon m4">B</div>
+            <div>
+              <h3>4. Bhargav (Role-Based Access Control & User Journey Lead)</h3>
+              <div class="role-title">Owner of Role Switching, Customer Portal & Security Boundaries</div>
+            </div>
+          </div>
+          <span class="member-role-badge" style="background: rgba(139, 92, 246, 0.2); color: #c084fc;">RBAC & Security</span>
+        </div>
+        <div class="tag-cloud">
+          <span class="tag">Role Switcher (Customer/Agent/Admin)</span>
+          <span class="tag">Data Isolation (FR-03/FR-07)</span>
+          <span class="tag">Google OAuth GSI</span>
+          <span class="tag">Ticket Lifecycle Stepper</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>Multi-Role Switcher:</strong> Test and verify that switching between <code>Customer</code>, <code>Support Agent</code>, and <code>Admin</code> immediately reflects role access in the sidebar.</li>
+          <li><strong>Customer Privacy Enforcement:</strong> Validate that customers only see their personal tickets while agents see the full queue.</li>
+          <li><strong>Lifecycle State Enforcement:</strong> Verify ticket state stepper transitions (New → InProgress → Resolved → Closed).</li>
+          <li><strong>User Testing Walkthrough:</strong> Prepare step-by-step test instructions for evaluators to test each role's permissions.</li>
+        </ul>
+        <div class="deliverables">
+          <strong>Key Deliverable:</strong> Interactive role inspection mechanism and customer data isolation verification.
+        </div>
+      </div>
+
+      <!-- Member 5: Mohan -->
+      <div class="member-card">
+        <div class="member-header">
+          <div class="member-name">
+            <div class="avatar-icon m5">M</div>
+            <div>
+              <h3>5. Mohan (QA, Data Analytics & Documentation Lead)</h3>
+              <div class="role-title">Owner of SLA Compliance Reports, Verification & Documentation</div>
+            </div>
+          </div>
+          <span class="member-role-badge" style="background: rgba(236, 72, 153, 0.2); color: #f472b6;">QA & Analytics</span>
+        </div>
+        <div class="tag-cloud">
+          <span class="tag">SLA Compliance Meter</span>
+          <span class="tag">Resolution Time Charts</span>
+          <span class="tag">End-to-End Test Suite</span>
+          <span class="tag">GCP Documentation</span>
+        </div>
+        <ul class="task-list">
+          <li><strong>Analytics Dashboard Validation:</strong> Verify that <code>GET /api/reports/summary</code> correctly renders SLA Compliance %, Avg Urgency, and Volume Over Time.</li>
+          <li><strong>End-to-End Flow Testing:</strong> Submit tickets with different keywords (e.g. "payment issue", "server down") to verify automatic categorization and SLA deadlines.</li>
+          <li><strong>Documentation & Setup Guide:</strong> Maintain <code>docs/gcp-setup-guide.md</code> and <code>README.md</code> with screenshots and architecture sequence diagrams.</li>
+          <li><strong>Disaster Recovery Check:</strong> Test API error states (offline mode, 401 unauthenticated, 404 missing endpoint) for honest UI feedback.</li>
+        </ul>
+        <div class="deliverables">
+          <strong>Key Deliverable:</strong> Complete testing report, live metric validation, and project evaluation readiness.
+        </div>
+      </div>
+
+    </div>
+
+    <footer>
+      <p>SupportHub Project · Powered by Google Cloud Platform · Ready for Final Review</p>
+    </footer>
+  </div>
+</body>
+</html>

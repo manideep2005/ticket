@@ -48,19 +48,19 @@ export function SignIn() {
           <ul className="auth-points">
             <li>
               <span className="tick">✓</span>
-              Tickets stored durably in Google Cloud Firestore with UTC audit timestamps
+              <strong>Customer Role:</strong> Submit tickets, view your personal ticket history, get automatic triage, and reply directly to agents.
             </li>
             <li>
               <span className="tick">✓</span>
-              Automated assignment via a Cloud Pub/Sub topic and a triggered Cloud Function
+              <strong>Support Agent Role:</strong> View team queues, manage ticket lifecycle, monitor SLA deadlines, and use 1-click AI recommended responses.
             </li>
             <li>
               <span className="tick">✓</span>
-              Role-based access for customers, support agents and admins (Google Identity)
+              <strong>Admin Role:</strong> Configure category routing rules, view organization-wide SLA compliance analytics, and manage workload balance.
             </li>
             <li>
               <span className="tick">✓</span>
-              Live reporting computed from your real ticket data
+              <strong>Google Cloud Engine:</strong> Real-time heuristic AI triage, automated priority escalation, and instant load balancing.
             </li>
           </ul>
         </div>

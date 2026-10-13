@@ -50,7 +50,7 @@ function titleFor(pathname: string): string {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, activeRole, previewMode, signOut, setPreviewRole } = useAuth();
+  const { user, activeRole, previewMode, signOut, setRole } = useAuth();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -99,27 +99,30 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
 
           <div className="nav-label" style={{ marginTop: 14 }}>
-            Role
+            Active Role
           </div>
           <div style={{ padding: "2px 8px 8px" }}>
-            <span className={`role-badge ${role}`}>{role}</span>
-            {previewMode && (
-              <div style={{ marginTop: 10 }}>
-                <label className="small muted" htmlFor="preview-role">
-                  Preview as
-                </label>
-                <select
-                  id="preview-role"
-                  value={role}
-                  onChange={(e) => setPreviewRole(e.target.value as AppRole)}
-                  style={{ marginTop: 5, fontSize: 13, padding: "6px 26px 6px 9px" }}
-                >
-                  <option value="customer">Customer</option>
-                  <option value="agent">Support agent</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span className={`role-badge ${role}`}>{role}</span>
+              <span className="small muted" style={{ fontSize: 11 }}>
+                ({role === "customer" ? "Submit & track" : role === "agent" ? "Triage & reply" : "Full access"})
+              </span>
+            </div>
+            <div>
+              <label className="small muted" htmlFor="role-switcher" style={{ fontSize: 11 }}>
+                Switch view role:
+              </label>
+              <select
+                id="role-switcher"
+                value={role}
+                onChange={(e) => setRole(e.target.value as AppRole)}
+                style={{ marginTop: 4, fontSize: 12.5, width: "100%", padding: "6px 10px" }}
+              >
+                <option value="customer">Customer (My Tickets)</option>
+                <option value="agent">Support Agent (Queue & SLAs)</option>
+                <option value="admin">Admin (Routing & Settings)</option>
+              </select>
+            </div>
           </div>
         </nav>
 
