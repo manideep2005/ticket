@@ -10,7 +10,9 @@ import {
   ErrorState,
   PriorityBadge,
   SkeletonCard,
+  SlaBadge,
   StatusBadge,
+  UrgencyBadge,
 } from "../components/ui";
 import { Icon } from "../components/icons";
 import { useToast } from "../components/Toast";
@@ -189,6 +191,8 @@ export function TicketDetail() {
           <div className="flex flex-wrap" style={{ marginBottom: 6 }}>
             <StatusBadge status={ticket.status} />
             <PriorityBadge priority={ticket.priority} />
+            <UrgencyBadge score={ticket.urgencyScore} />
+            <SlaBadge slaDueUtc={ticket.slaDueUtc} isResolved={ticket.status === "Resolved" || ticket.status === "Closed"} />
             <span className="ticket-id">#{ticket.ticketNumber}</span>
           </div>
           <h1 className="detail-title">{ticket.subject}</h1>
@@ -200,6 +204,14 @@ export function TicketDetail() {
             <span>Updated {relativeTime(ticket.updatedAtUtc)}</span>
             <span>·</span>
             <span>{ticket.category}</span>
+            {ticket.sentiment && (
+              <>
+                <span>·</span>
+                <span title="Detected customer sentiment tone">
+                  Tone: <strong>{ticket.sentiment}</strong>
+                </span>
+              </>
+            )}
             {ticket.resolvedAtUtc && (
               <>
                 <span>·</span>
@@ -287,7 +299,19 @@ export function TicketDetail() {
 
               <form onSubmit={onReply}>
                 <div className="field">
-                  <label htmlFor="reply">Add a reply</label>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <label htmlFor="reply" style={{ margin: 0 }}>Add a reply</label>
+                    {ticket.recommendedReply && canManage && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 12, color: "#3b82f6" }}
+                        onClick={() => setReplyText(ticket.recommendedReply || "")}
+                      >
+                        ⚡ Insert AI Suggested Response
+                      </button>
+                    )}
+                  </div>
                   <textarea
                     id="reply"
                     placeholder="Type your message…"

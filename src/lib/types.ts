@@ -62,6 +62,11 @@ export interface Ticket {
   source: string;
   tags?: string[];
   messages?: TicketMessage[];
+  urgencyScore?: number;
+  sentiment?: "Positive" | "Neutral" | "Negative" | "Frustrated";
+  slaDueUtc?: string;
+  slaBreached?: boolean;
+  recommendedReply?: string;
 }
 
 /** POST /api/tickets request body */
@@ -106,6 +111,9 @@ export interface ReportSummary {
   byTeam: Record<string, number>;
   averageResolutionTimeHours: number | null;
   volumeOverTime: { date: string; count: number }[];
+  slaComplianceRate?: number;
+  breachedSlaCount?: number;
+  avgUrgencyScore?: number;
 }
 
 /** GET /api/routing/rules — the documented routing rule set (FR-05). */

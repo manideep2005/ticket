@@ -257,6 +257,26 @@ export function Dashboard() {
               </div>
               <div className="kpi-hint">created → resolvedAtUtc, mean over resolved</div>
             </div>
+            {summary.slaComplianceRate !== undefined && (
+              <div className="kpi" style={{ borderLeft: "3px solid #10b981" }}>
+                <div className="kpi-label">SLA Compliance</div>
+                <div className="kpi-value" style={{ color: summary.slaComplianceRate >= 80 ? "#10b981" : "#ef4444" }}>
+                  {summary.slaComplianceRate}%
+                </div>
+                <div className="kpi-hint">
+                  {summary.breachedSlaCount ? `${summary.breachedSlaCount} breached targets` : "All targets on track"}
+                </div>
+              </div>
+            )}
+            {summary.avgUrgencyScore !== undefined && (
+              <div className="kpi" style={{ borderLeft: "3px solid #f59e0b" }}>
+                <div className="kpi-label">Average Urgency</div>
+                <div className="kpi-value" style={{ color: "#f59e0b" }}>
+                  {summary.avgUrgencyScore}/100
+                </div>
+                <div className="kpi-hint">Automated incident triage score</div>
+              </div>
+            )}
           </div>
 
           <div className="grid-2">

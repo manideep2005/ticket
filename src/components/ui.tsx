@@ -16,6 +16,64 @@ export function PriorityBadge({ priority }: { priority: Priority | string }) {
   return <span className={`badge priority-${priority}`}>{priority}</span>;
 }
 
+export function UrgencyBadge({ score }: { score?: number }) {
+  if (score === undefined || score === null) return null;
+  const isHigh = score >= 70;
+  const isMedium = score >= 45 && score < 70;
+  const bg = isHigh ? "rgba(239, 68, 68, 0.15)" : isMedium ? "rgba(245, 158, 11, 0.15)" : "rgba(16, 185, 129, 0.15)";
+  const color = isHigh ? "#ef4444" : isMedium ? "#f59e0b" : "#10b981";
+  return (
+    <span
+      className="badge"
+      style={{
+        background: bg,
+        color: color,
+        border: `1px solid ${color}33`,
+        fontWeight: 600,
+      }}
+      title={`Automated Triage Urgency: ${score}/100`}
+    >
+      🔥 Urgency: {score}
+    </span>
+  );
+}
+
+export function SlaBadge({ slaDueUtc, isResolved }: { slaDueUtc?: string; isResolved?: boolean }) {
+  if (!slaDueUtc) return null;
+  if (isResolved) {
+    return (
+      <span className="badge" style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981" }}>
+        ✓ SLA Met
+      </span>
+    );
+  }
+
+  const diffMs = new Date(slaDueUtc).getTime() - Date.now();
+  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+
+  if (diffMs <= 0) {
+    return (
+      <span className="badge" style={{ background: "rgba(239, 68, 68, 0.2)", color: "#ef4444", fontWeight: 700 }}>
+        ⚠️ SLA Breached
+      </span>
+    );
+  }
+
+  const isAtRisk = diffHours <= 3;
+  return (
+    <span
+      className="badge"
+      style={{
+        background: isAtRisk ? "rgba(245, 158, 11, 0.2)" : "rgba(59, 130, 246, 0.12)",
+        color: isAtRisk ? "#f59e0b" : "#3b82f6",
+        fontWeight: 600,
+      }}
+    >
+      ⏱ {diffHours <= 1 ? "Due < 1h" : `Due in ${diffHours}h`}
+    </span>
+  );
+}
+
 export function Spinner({ label }: { label?: string }) {
   return (
     <span className="flex" style={{ fontSize: 13, color: "var(--text-muted)" }}>

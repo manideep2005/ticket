@@ -11,7 +11,15 @@ import {
   type Ticket,
   type TicketStatus,
 } from "../lib/types";
-import { EmptyState, ErrorState, PriorityBadge, SkeletonRows, StatusBadge } from "../components/ui";
+import {
+  EmptyState,
+  ErrorState,
+  PriorityBadge,
+  SkeletonRows,
+  SlaBadge,
+  StatusBadge,
+  UrgencyBadge,
+} from "../components/ui";
 import { Icon } from "../components/icons";
 
 type StatusFilter = "All" | "Open" | (typeof TICKET_STATUSES)[number];
@@ -227,10 +235,12 @@ export function Tickets() {
                     >
                       <td>
                         <div className="cell-title">{t.subject}</div>
-                        <div className="cell-sub">
+                        <div className="cell-sub" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
                           <span className="ticket-id">#{t.ticketNumber}</span>
                           <span aria-hidden="true"> · </span>
-                          {t.category}
+                          <span>{t.category}</span>
+                          <UrgencyBadge score={t.urgencyScore} />
+                          <SlaBadge slaDueUtc={t.slaDueUtc} isResolved={t.status === "Resolved" || t.status === "Closed"} />
                         </div>
                       </td>
                       <td>
@@ -242,7 +252,7 @@ export function Tickets() {
                       <td className="hide-sm">
                         {unassigned ? (
                           t.status === "Queued" || t.status === "New" ? (
-                            <span className="muted small">Routing…</span>
+                            <span className="muted small">Auto-Routing…</span>
                           ) : (
                             <span className="muted small">Unassigned</span>
                           )

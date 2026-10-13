@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { requireAuth, requireRole, type AuthRequest } from "./auth.ts";
 import { store } from "./store.ts";
 import { ROUTING_RULES, processAutomatedRouting } from "./routing.ts";
+import { analyzeTicketIntelligence } from "./intelligence.ts";
 import type { Category, Priority, ReportSummary, Ticket, TicketStatus } from "./types.ts";
 
 export const apiRouter = Router();
@@ -113,6 +114,14 @@ apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
   const id = crypto.randomUUID();
   const ticketNumber = store.getNextTicketNumber();
 
+  // Run Real-Time AI / Heuristic Triage Algorithm
+  const intelligence = analyzeTicketIntelligence(
+    subject,
+    description,
+    category as Category,
+    priority as Priority,
+  );
+
   const newTicket: Ticket = {
     id,
     ticketNumber,
@@ -122,17 +131,22 @@ apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
     subject: subject.trim(),
     description: description.trim(),
     category: category as Category,
-    priority: priority as Priority,
+    priority: intelligence.suggestedPriority,
     status: "New",
     createdAtUtc: now,
     updatedAtUtc: now,
     source: "Portal",
-    tags: [],
+    tags: intelligence.detectedTags,
+    urgencyScore: intelligence.urgencyScore,
+    sentiment: intelligence.sentiment,
+    slaDueUtc: intelligence.slaDueUtc,
+    slaBreached: false,
+    recommendedReply: intelligence.recommendedReply,
   };
 
   store.createTicket(newTicket);
 
-  // Trigger automated routing (Category -> Team)
+  // Trigger automated routing (Category -> Team -> Least-loaded Agent)
   const routedTicket = processAutomatedRouting(newTicket);
 
   res.status(201).json(routedTicket);
@@ -300,12 +314,34 @@ apiRouter.get("/reports/summary", requireRole("agent", "admin"), (req: AuthReque
     }
   }
 
+  // Calculate SLA compliance
+  let breachedSlaCount = 0;
+  let totalUrgency = 0;
+  for (const t of inWindow) {
+    totalUrgency += t.urgencyScore || 40;
+    if (t.slaDueUtc) {
+      const dueTime = new Date(t.slaDueUtc).getTime();
+      const compareTime = t.resolvedAtUtc ? new Date(t.resolvedAtUtc).getTime() : now.getTime();
+      if (compareTime > dueTime) {
+        breachedSlaCount++;
+      }
+    }
+  }
+
   const openTickets = inWindow.filter((t) => t.status !== "Resolved" && t.status !== "Closed").length;
   const resolvedTickets = inWindow.filter((t) => t.status === "Resolved").length;
   const closedTickets = inWindow.filter((t) => t.status === "Closed").length;
 
   const averageResolutionTimeHours =
     resolvedCount > 0 ? Number((totalResolutionTimeHours / resolvedCount).toFixed(1)) : null;
+
+  const slaComplianceRate =
+    inWindow.length > 0
+      ? Math.round(((inWindow.length - breachedSlaCount) / inWindow.length) * 100)
+      : 100;
+
+  const avgUrgencyScore =
+    inWindow.length > 0 ? Math.round(totalUrgency / inWindow.length) : 0;
 
   // Compute daily volume over time
   const dayMap = new Map<string, number>();
@@ -340,6 +376,9 @@ apiRouter.get("/reports/summary", requireRole("agent", "admin"), (req: AuthReque
     byTeam,
     averageResolutionTimeHours,
     volumeOverTime,
+    slaComplianceRate,
+    breachedSlaCount,
+    avgUrgencyScore,
   };
 
   res.json(summary);
