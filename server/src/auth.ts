@@ -1,123 +1,165 @@
+/**
+ * Authentication and authorization middleware for SupportHub.
+ *
+ * Security model:
+ *  1. Every protected request MUST carry a Google ID token in
+ *     `Authorization: Bearer <token>`.
+ *  2. The token is verified cryptographically using google-auth-library with
+ *     the configured OAuth audience (GOOGLE_CLIENT_ID).  If GOOGLE_CLIENT_ID is
+ *     not set the server refuses to start — there is NO insecure fallback.
+ *  3. After signature verification the user's role and isActive status are
+ *     loaded from the BACKEND DATABASE (store.ts).  The frontend never decides
+ *     role.
+ *  4. Deactivated accounts receive 403 on every protected request.
+ *  5. The x-role-override header is intentionally ignored.
+ */
+
+import "./env.ts";
 import type { Request, Response, NextFunction } from "express";
 import { OAuth2Client } from "google-auth-library";
 import type { AppRole, AuthenticatedUser } from "./types.ts";
+import { store } from "./store.ts";
 
-const clientId = process.env.GOOGLE_CLIENT_ID || "";
-const client = new OAuth2Client(clientId);
+export function getClientId(): string {
+  return (
+    process.env.GOOGLE_CLIENT_ID ||
+    process.env.VITE_GOOGLE_CLIENT_ID ||
+    ""
+  ).trim();
+}
+
+let cachedClient: OAuth2Client | null = null;
+let cachedClientId: string | null = null;
+
+function getOAuthClient(): { client: OAuth2Client; clientId: string } {
+  const currentId = getClientId();
+  if (!currentId) {
+    throw new Error("GOOGLE_CLIENT_ID not configured — cannot verify tokens");
+  }
+  if (!cachedClient || cachedClientId !== currentId) {
+    cachedClient = new OAuth2Client(currentId);
+    cachedClientId = currentId;
+  }
+  return { client: cachedClient, clientId: currentId };
+}
 
 export interface AuthRequest extends Request {
   user?: AuthenticatedUser;
 }
 
-function resolveUserRole(email: string, payloadRole?: string, roleOverrideHeader?: string | string[]): AppRole {
-  // If user explicitly switched their role in the frontend for evaluation/testing
-  if (roleOverrideHeader) {
-    const override = Array.isArray(roleOverrideHeader) ? roleOverrideHeader[0] : roleOverrideHeader;
-    const lower = override.toLowerCase();
-    if (lower === "admin" || lower === "agent" || lower === "customer") {
-      return lower as AppRole;
-    }
+/**
+ * Verify a Google ID token and return its payload.
+ * Throws if verification fails.
+ */
+async function verifyGoogleToken(
+  token: string
+): Promise<{ sub: string; email: string; name: string; picture?: string }> {
+  const { client, clientId } = getOAuthClient();
+
+  const ticket = await client.verifyIdToken({
+    idToken: token,
+    audience: clientId,
+  });
+
+  const payload = ticket.getPayload();
+  if (!payload || !payload.sub) {
+    throw new Error("Token payload missing sub claim");
   }
 
-  if (payloadRole === "admin" || payloadRole === "agent" || payloadRole === "customer") {
-    return payloadRole;
+  // Require email_verified
+  if (payload.email_verified === false) {
+    throw new Error("Google account email is not verified");
   }
 
-  const adminEmails = (process.env.VITE_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-  const agentEmails = (process.env.VITE_AGENT_EMAILS || process.env.AGENT_EMAILS || "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-  const normalized = email.toLowerCase();
-  if (adminEmails.includes(normalized)) return "admin";
-  if (agentEmails.includes(normalized)) return "agent";
-  return "customer";
+  return {
+    sub: payload.sub,
+    email: (payload.email ?? "").toLowerCase(),
+    name: payload.name ?? payload.email?.split("@")[0] ?? payload.sub.slice(0, 8),
+    picture: payload.picture,
+  };
 }
 
 /**
- * Express middleware to verify Google ID token.
+ * Express middleware: verify Google ID token and load the user's role from DB.
+ *
+ * On success: sets req.user and calls next().
+ * On failure: responds 401 / 403 and does NOT call next().
  */
 export async function requireAuth(
   req: AuthRequest,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Missing or invalid Authorization header" });
+    res.status(401).json({ error: "Authentication required" });
     return;
   }
 
   const token = authHeader.slice(7).trim();
   if (!token) {
-    res.status(401).json({ error: "Token not provided" });
+    res.status(401).json({ error: "Bearer token is empty" });
     return;
   }
 
+  let googleSub: string;
+  let googleEmail: string;
+  let googleName: string;
+  let googlePicture: string | undefined;
+
   try {
-    // 1. Verify with Google's public keys
-    if (clientId) {
-      try {
-        const ticket = await client.verifyIdToken({
-          idToken: token,
-          audience: clientId,
-        });
-        const payload = ticket.getPayload();
-        if (payload && payload.sub) {
-          const email = payload.email || "";
-          const name = payload.name || email.split("@")[0] || payload.sub.slice(0, 8);
-          const roleOverride = req.headers["x-role-override"];
-          req.user = {
-            userId: payload.sub,
-            email,
-            name,
-            role: resolveUserRole(email, (payload as Record<string, unknown>).role as string, roleOverride),
-            avatarUrl: payload.picture,
-          };
-          next();
-          return;
-        }
-      } catch (err) {
-        console.warn("Google client.verifyIdToken failed, checking token fallback:", err);
-      }
-    }
-
-    // 2. Fallback: Parse unverified JWT payload in local/test situations
-    const parts = token.split(".");
-    if (parts.length >= 2) {
-      const base64Url = parts[1];
-      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const decoded = JSON.parse(Buffer.from(base64, "base64").toString("utf-8"));
-      if (decoded && decoded.sub) {
-        const email = decoded.email || "";
-        const name = decoded.name || email.split("@")[0] || decoded.sub.slice(0, 8);
-        const roleOverride = req.headers["x-role-override"];
-        req.user = {
-          userId: decoded.sub,
-          email,
-          name,
-          role: resolveUserRole(email, decoded.role, roleOverride),
-          avatarUrl: decoded.picture,
-        };
-        next();
-        return;
-      }
-    }
-
-    res.status(401).json({ error: "Invalid ID token" });
-  } catch (error) {
-    console.error("Auth middleware error:", error);
-    res.status(401).json({ error: "Authentication failed" });
+    const verified = await verifyGoogleToken(token);
+    googleSub = verified.sub;
+    googleEmail = verified.email;
+    googleName = verified.name;
+    googlePicture = verified.picture;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[auth] Token verification failed:", msg);
+    res.status(401).json({ error: "Invalid or expired authentication token" });
+    return;
   }
+
+  // Load (or create on first login) user record from DB — this is the
+  // ONLY source of the user's role.
+  let userRecord = store.upsertUserOnLogin({
+    userId: googleSub,
+    email: googleEmail,
+    name: googleName,
+    avatarUrl: googlePicture,
+  });
+
+  // Bootstrap initial admin if this is the configured ADMIN_EMAIL
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
+  if (adminEmail && googleEmail === adminEmail) {
+    store.bootstrapAdmin(googleSub);
+    // Reload record so the role change is reflected
+    userRecord = store.getUserById(googleSub) ?? userRecord;
+  }
+
+  // Deactivated accounts cannot access the API
+  if (!userRecord.isActive) {
+    res.status(403).json({
+      error: "Your account has been deactivated. Please contact an administrator.",
+    });
+    return;
+  }
+
+  req.user = {
+    userId: userRecord.userId,
+    email: userRecord.email,
+    name: userRecord.name,
+    role: userRecord.role,
+    avatarUrl: userRecord.avatarUrl,
+    isActive: userRecord.isActive,
+  };
+
+  next();
 }
 
 /**
- * Middleware to restrict routes to specific roles.
+ * Middleware factory: restrict a route to one or more roles.
+ * Must be used AFTER requireAuth.
  */
 export function requireRole(...roles: AppRole[]) {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
@@ -127,7 +169,7 @@ export function requireRole(...roles: AppRole[]) {
     }
     if (!roles.includes(req.user.role)) {
       res.status(403).json({
-        error: `Forbidden: requires one of [${roles.join(", ")}] roles`,
+        error: `Forbidden: requires one of [${roles.join(", ")}]`,
       });
       return;
     }

@@ -6,6 +6,7 @@ export interface AuthenticatedUser {
   name: string;
   role: AppRole;
   avatarUrl?: string;
+  isActive: boolean;
 }
 
 export type TicketStatus =
@@ -102,11 +103,32 @@ export interface ReportSummary {
   breachedSlaCount?: number;
   avgUrgencyScore?: number;
 }
+
+/**
+ * Canonical user record stored in the backend DB.
+ * Role is the single source of truth — never derived from the frontend.
+ */
+export interface UserRecord {
+  /** Google stable user ID (sub claim) */
+  userId: string;
+  email: string;
+  name: string;
+  role: AppRole;
+  isActive: boolean;
+  avatarUrl?: string;
+  joinedAtUtc: string;
+  lastActiveUtc?: string;
+  /** For agents: which team they are assigned to */
+  assignedTeam?: string;
+}
+
+/** Public-facing profile with ticket stats (computed on read) */
 export interface UserProfile {
   userId: string;
   email: string;
   name: string;
   role: AppRole;
+  isActive: boolean;
   avatarUrl?: string;
   joinedAtUtc: string;
   totalTickets: number;
@@ -114,4 +136,17 @@ export interface UserProfile {
   resolvedTickets: number;
   lastActiveUtc?: string;
   assignedTeam?: string;
+}
+
+/** Audit log entry for role / status changes */
+export interface AuditEntry {
+  id: string;
+  actorUserId: string;
+  actorEmail: string;
+  targetUserId: string;
+  targetEmail: string;
+  action: "role_change" | "status_change";
+  previousValue: string;
+  newValue: string;
+  timestampUtc: string;
 }

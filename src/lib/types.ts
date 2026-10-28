@@ -136,15 +136,17 @@ export interface RoutingRule {
   description?: string;
 }
 
-/** Roles mapped from Google Identity / backend RBAC. */
+/** Roles mapped from backend RBAC — never decided by the frontend. */
 export type AppRole = "customer" | "agent" | "admin";
 
 export interface AuthUser {
   userId: string;
   email: string;
   name: string;
-  roles: AppRole[];
+  /** Single role as returned by the backend /api/me endpoint. */
+  role: AppRole;
   avatarUrl?: string;
+  isActive: boolean;
 }
 
 export type AuthState =
@@ -158,6 +160,7 @@ export interface UserProfile {
   email: string;
   name: string;
   role: AppRole;
+  isActive: boolean;
   avatarUrl?: string;
   joinedAtUtc: string;
   totalTickets: number;

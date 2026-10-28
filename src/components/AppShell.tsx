@@ -2,10 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { initials } from "../lib/format";
-import type { AppRole } from "../lib/types";
 import { Icon, type IconName } from "./icons";
 import { api } from "../lib/api";
-import type { Ticket } from "../lib/types";
+import type { AppRole, Ticket } from "../lib/types";
 
 interface NavItem {
   to: string;
@@ -191,7 +190,7 @@ function useOutageDetection(tickets: Ticket[]) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, activeRole, previewMode, signOut, setRole } = useAuth();
+  const { user, activeRole, previewMode, signOut } = useAuth();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -270,26 +269,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             Active Role
           </div>
           <div style={{ padding: "2px 8px 8px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className={`role-badge ${role}`}>{role}</span>
               <span className="small muted" style={{ fontSize: 11 }}>
                 ({role === "customer" ? "Submit & track" : role === "agent" ? "Triage & reply" : "Full access"})
               </span>
-            </div>
-            <div>
-              <label className="small muted" htmlFor="role-switcher" style={{ fontSize: 11 }}>
-                Switch view role:
-              </label>
-              <select
-                id="role-switcher"
-                value={role}
-                onChange={(e) => setRole(e.target.value as AppRole)}
-                style={{ marginTop: 4, fontSize: 12.5, width: "100%", padding: "6px 10px" }}
-              >
-                <option value="customer">Customer (My Tickets)</option>
-                <option value="agent">Support Agent (Queue & SLAs)</option>
-                <option value="admin">Admin (Routing & Settings)</option>
-              </select>
             </div>
           </div>
         </nav>

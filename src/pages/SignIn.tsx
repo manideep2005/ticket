@@ -12,6 +12,17 @@ function markReturningUser() {
   try { localStorage.setItem(RETURNING_USER_KEY, "true"); } catch { /* ignore */ }
 }
 
+/** Read and clear any auth error set by the auth context (e.g. deactivated account). */
+function popAuthError(): string | null {
+  try {
+    const msg = sessionStorage.getItem("supporthub_auth_error");
+    if (msg) sessionStorage.removeItem("supporthub_auth_error");
+    return msg;
+  } catch {
+    return null;
+  }
+}
+
 const FEATURES = [
   {
     icon: "🎫",
@@ -110,6 +121,7 @@ export function SignIn() {
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [gsiRendered, setGsiRendered] = useState(false);
   const [isSignUp, setIsSignUp] = useState(() => !isReturningUser());
+  const [authError] = useState<string | null>(() => popAuthError());
   const authAvailable = state.status === "anonymous" || state.status === "authenticated";
 
   useEffect(() => {
@@ -157,6 +169,13 @@ export function SignIn() {
               ? "Create your SupportHub account using your Google or Google Workspace account."
               : "Sign in to your SupportHub account to view tickets and manage support."}
           </p>
+
+          {/* Deactivation or auth error */}
+          {authError && (
+            <Alert tone="warning" title="Sign-in failed">
+              {authError}
+            </Alert>
+          )}
 
           {state.status === "checking" && (
             <button className="btn btn-block" disabled>

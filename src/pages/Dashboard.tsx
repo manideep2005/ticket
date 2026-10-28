@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, unwrapList } from "../lib/api";
 import { useApi } from "../hooks/useApi";
-import { useAuth } from "../lib/auth";
+import { useAuth, getAuthToken } from "../lib/auth";
 import { formatDateShort, formatDuration, plural } from "../lib/format";
 import type { ReportSummary, Ticket } from "../lib/types";
 import {
@@ -23,10 +23,11 @@ function AdminControlPanel() {
     setExportBusy(true);
     setExportDone(false);
     try {
+      const token = getAuthToken();
       const res = await fetch("/api/tickets/export/csv", {
         headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("gid_token") ?? ""}`,
-          "x-role-override": sessionStorage.getItem("active_role_override") ?? "",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Accept: "text/csv",
         },
       });
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);

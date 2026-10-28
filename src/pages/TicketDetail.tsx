@@ -62,6 +62,15 @@ export function TicketDetail() {
   const [replyError, setReplyError] = useState<string | null>(null);
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState("");
+
+  // Fetch real active agents for manual assignment (agent + admin only)
+  const { data: agentsData } = useApi(
+    () => canManage ? api.listAgents() : Promise.resolve(null),
+    [canManage],
+  );
+  const availableAgents = agentsData?.agents ?? [];
 
   const nextStatuses = useMemo(
     () => (ticket ? TRANSITIONS[ticket.status] ?? [] : []),
@@ -124,6 +133,26 @@ export function TicketDetail() {
     }
   }
 
+  async function assignAgent(agentId: string | null) {
+    setAssignBusy(true);
+    try {
+      const updated = await api.updateTicket(id, { assignedAgentId: agentId });
+      setData((prev) => (prev ? { ...updated, messages: prev.messages ?? updated.messages } : updated));
+      if (agentId) {
+        const agent = availableAgents.find((a) => a.userId === agentId);
+        toast.push("success", "Agent assigned", `Ticket assigned to ${agent?.name ?? agentId}.`);
+      } else {
+        toast.push("info", "Agent unassigned", "Ticket returned to the team queue.");
+      }
+      setSelectedAgentId("");
+      refetch();
+    } catch (err) {
+      toast.push("error", "Assignment failed", describeError(err));
+    } finally {
+      setAssignBusy(false);
+    }
+  }
+
   /* ---------------- states ---------------- */
 
   if (initialLoading) {
@@ -178,8 +207,6 @@ export function TicketDetail() {
   const idx = stepIndex(ticket.status);
   const messages = ticket.messages ?? [];
   const waiting = ticket.status === "WaitingForCustomer";
-  const pendingRouting =
-    !ticket.assignedTeam && (ticket.status === "New" || ticket.status === "Queued");
 
   return (
     <>
@@ -456,26 +483,24 @@ export function TicketDetail() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div className="card card-pad side-panel">
             <div className="panel-title">Assignment</div>
-            {pendingRouting ? (
-              <div className="assignment-card pending">
-                <span className="assign-icon" aria-hidden="true">⏳</span>
-                <div>
-                  <div className="assign-title">Routing in progress</div>
-                  <div className="assign-sub">
-                    A <code>TicketCreated</code> message is being processed by the
-                    queue-triggered function; the team will be set shortly.
-                  </div>
-                </div>
-              </div>
-            ) : ticket.assignedTeam ? (
+            {ticket.assignedTeam ? (
               <div className="assignment-card">
                 <span className="assign-icon" aria-hidden="true">
                   <Icon name="users" size={17} />
                 </span>
                 <div>
-                  <div className="assign-title">{ticket.assignedTeam}</div>
-                  <div className="assign-sub">
-                    {ticket.assignedAgentName ?? ticket.assignedAgentId ?? "Team queue"}
+                  <div className="assign-title" style={{ fontWeight: 650 }}>{ticket.assignedTeam}</div>
+                  <div className="assign-sub" style={{ marginTop: 4 }}>
+                    {ticket.assignedAgentName ? (
+                      <div>
+                        Assigned to <strong>{ticket.assignedAgentName}</strong>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span className="badge status-Queued" style={{ fontSize: 11, padding: "2px 6px" }}>Queued</span>
+                        <span style={{ color: "#b45309", fontWeight: 550, fontSize: 12 }}>Unassigned in group queue</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -486,11 +511,69 @@ export function TicketDetail() {
                 </span>
                 <div>
                   <div className="assign-title">Unassigned</div>
-                  <div className="assign-sub">No team matched the routing rules.</div>
+                  <div className="assign-sub">No support group matched the routing rules.</div>
                 </div>
               </div>
             )}
           </div>
+
+          {/* Manual agent assignment — agents and admins only */}
+          {canManage && (
+            <div className="card card-pad side-panel">
+              <div className="panel-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Icon name="user" size={14} /> Assign Agent
+              </div>
+              {availableAgents.length === 0 ? (
+                <p className="muted small" style={{ margin: "8px 0 0" }}>
+                  No active agents or admins found.
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 9, marginTop: 6 }}>
+                  <select
+                    id="agent-assign-select"
+                    aria-label="Select agent to assign"
+                    value={selectedAgentId}
+                    onChange={(e) => setSelectedAgentId(e.target.value)}
+                    disabled={assignBusy}
+                    style={{ fontSize: 13 }}
+                  >
+                    <option value="">— select an agent —</option>
+                    {availableAgents.map((a) => (
+                      <option key={a.userId} value={a.userId}>
+                        {a.name}{a.assignedTeam ? ` (${a.assignedTeam})` : ""} [{a.role}]
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      className="btn btn-primary btn-block"
+                      disabled={!selectedAgentId || assignBusy}
+                      onClick={() => void assignAgent(selectedAgentId)}
+                      style={{ flex: 1 }}
+                    >
+                      {assignBusy ? <><span className="spinner" aria-hidden="true" /> Assigning…</> : "Assign"}
+                    </button>
+                    {ticket.assignedAgentId && (
+                      <button
+                        className="btn btn-block"
+                        disabled={assignBusy}
+                        onClick={() => void assignAgent(null)}
+                        title="Remove current agent assignment"
+                        style={{ flex: "0 0 auto", padding: "0 12px" }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {ticket.assignedAgentName && (
+                    <p className="muted small" style={{ margin: 0 }}>
+                      Currently: <strong>{ticket.assignedAgentName}</strong>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="card card-pad side-panel">
             <div className="panel-title">Lifecycle</div>

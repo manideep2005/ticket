@@ -1,17 +1,13 @@
+import "./env.ts";
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { apiRouter } from "./routes.ts";
+import { getClientId } from "./auth.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// Load backend environment variables
-dotenv.config({ path: path.join(__dirname, "..", "..", ".env.backend") });
-dotenv.config({ path: path.join(__dirname, "..", "..", ".env.local") });
-dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5001;
@@ -46,5 +42,5 @@ if (fs.existsSync(distPath)) {
 app.listen(port, () => {
   console.log(`🚀 SupportHub GCP Backend running on http://localhost:${port}`);
   console.log(`   GCP Project: ${process.env.GCP_PROJECT_ID || "ticket-511417"}`);
-  console.log(`   OAuth Audience: ${process.env.GOOGLE_CLIENT_ID ? "configured" : "none"}`);
+  console.log(`   OAuth Audience: ${getClientId() ? "configured" : "none"}`);
 });

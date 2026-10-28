@@ -108,11 +108,9 @@ interface RequestOptions {
 async function request<T>(path: string, init?: RequestOptions): Promise<T> {
   const url = `${API_BASE}${path}`;
   const token = getAuthToken();
-  const currentRole = typeof window !== "undefined" ? window.sessionStorage.getItem("active_role_override") : null;
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(currentRole ? { "x-role-override": currentRole } : {}),
     ...(init?.headers ?? {}),
   };
   const hasBody = init?.body !== undefined;
@@ -137,6 +135,13 @@ async function request<T>(path: string, init?: RequestOptions): Promise<T> {
   const body = await parseBody(res);
 
   if (!res.ok) {
+    if ((res.status === 401 || res.status === 403) && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("supporthub:auth_error", {
+          detail: { status: res.status },
+        }),
+      );
+    }
     const errObj =
       body && typeof body === "object" ? (body as Record<string, unknown>) : {};
     const message =
@@ -164,6 +169,11 @@ function toQuery(params: Record<string, string | number | undefined | null>): st
 }
 
 export const api = {
+  /** GET /api/me — Returns the authenticated user's backend profile and role */
+  getMe(): Promise<{ user: import("./types").AuthUser }> {
+    return request("/api/me");
+  },
+
   /** GET /api/tickets — backend scopes visibility by role (FR-03). */
   listTickets(params: TicketListParams = {}): Promise<{ tickets: Ticket[] } | Ticket[]> {
     return request(`/api/tickets${toQuery({ ...params })}`);
@@ -213,6 +223,14 @@ export const api = {
     return request("/api/routing/rules");
   },
 
+  /** PUT /api/routing/rules — Admin only: update routing rules */
+  updateRoutingRules(rules: RoutingRule[]): Promise<{ rules: RoutingRule[] }> {
+    return request("/api/routing/rules", {
+      method: "PUT",
+      body: { rules },
+    });
+  },
+
   /** GET /api/teams/capacity — Real-time team capacity heatmap */
   getTeamCapacities(): Promise<{ capacities: Array<{ team: string; totalAgents: number; activeAgents: number; activeTickets: number; loadPercent: number; status: "Optimal" | "Moderate" | "Congested"; }> }> {
     return request("/api/teams/capacity");
@@ -223,9 +241,43 @@ export const api = {
     return request("/api/teams/rebalance", { method: "POST" });
   },
 
-  /** GET /api/users — Admin only: list customer + agent profiles */
-  listUsers(): Promise<{ customers: UserProfile[]; agents: UserProfile[] }> {
+  /** GET /api/agents — Agent/Admin: list active agents & admins for manual assignment */
+  listAgents(): Promise<{ agents: Array<{ userId: string; name: string; email: string; role: string; assignedTeam?: string }> }> {
+    return request("/api/agents");
+  },
+
+  /** GET /api/users — Admin only: list all users */
+  listUsers(): Promise<{ users: UserProfile[]; agents: UserProfile[]; customers: UserProfile[]; admins: UserProfile[] }> {
     return request("/api/users");
+  },
+
+  /** PATCH /api/users/:id/role — Admin only: change a user's role */
+  patchUserRole(userId: string, role: string): Promise<{ message: string; user: UserProfile }> {
+    return request(`/api/users/${encodeURIComponent(userId)}/role`, {
+      method: "PATCH",
+      body: { role },
+    });
+  },
+
+  /** PATCH /api/users/:id/status — Admin only: activate/deactivate a user */
+  patchUserStatus(userId: string, isActive: boolean): Promise<{ message: string; user: UserProfile }> {
+    return request(`/api/users/${encodeURIComponent(userId)}/status`, {
+      method: "PATCH",
+      body: { isActive },
+    });
+  },
+
+  /** PATCH /api/users/:id/team — Admin only: update user's assigned team */
+  patchUserTeam(userId: string, assignedTeam: string | null): Promise<{ message: string; user: UserProfile }> {
+    return request(`/api/users/${encodeURIComponent(userId)}/team`, {
+      method: "PATCH",
+      body: { assignedTeam },
+    });
+  },
+
+  /** GET /api/admin/audit — Admin only: retrieve audit log */
+  getAuditLog(): Promise<{ entries: Array<{ id: string; actorEmail: string; targetEmail: string; action: string; previousValue: string; newValue: string; timestampUtc: string }> }> {
+    return request("/api/admin/audit");
   },
 
   /** POST /api/users/agents — Admin only: add a support agent */
@@ -233,7 +285,7 @@ export const api = {
     return request("/api/users/agents", { method: "POST", body: payload });
   },
 
-  /** DELETE /api/users/agents/:id — Admin only: remove a support agent */
+  /** DELETE /api/users/agents/:id — Admin only: remove (demote) a support agent */
   removeAgent(userId: string): Promise<{ ok: boolean }> {
     return request(`/api/users/agents/${encodeURIComponent(userId)}`, { method: "DELETE" });
   },

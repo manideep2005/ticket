@@ -4,7 +4,7 @@ import { requireAuth, requireRole, type AuthRequest } from "./auth.ts";
 import { store } from "./store.ts";
 import { ROUTING_RULES, processAutomatedRouting, getTeamCapacities, autoRebalanceCaseload } from "./routing.ts";
 import { analyzeTicketIntelligence } from "./intelligence.ts";
-import type { Category, Priority, ReportSummary, Ticket, TicketStatus, UserProfile } from "./types.ts";
+import type { AuditEntry, AppRole, Category, Priority, RoutingRule, Ticket, TicketStatus } from "./types.ts";
 
 export const apiRouter = Router();
 
@@ -16,36 +16,66 @@ apiRouter.get("/config", (_req, res: Response) => {
   });
 });
 
-// Apply auth to all protected /api routes
+// ─── All routes below require a valid Google ID token ────────────────────────
 apiRouter.use(requireAuth);
 
-/** GET /api/me — Returns current authenticated user profile and resolved role */
+// ─── /api/me ─────────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/me
+ * Returns the authenticated user's profile and backend-assigned role.
+ * This is the authoritative source of role for the frontend — not the JWT claims.
+ */
 apiRouter.get("/me", (req: AuthRequest, res: Response) => {
-  res.json({ user: req.user });
+  const user = req.user!;
+  const record = store.getUserById(user.userId);
+  if (!record) {
+    res.status(404).json({ error: "User record not found" });
+    return;
+  }
+  const profile = store.buildProfile(record);
+  res.json({ user: profile });
 });
+
+// ─── Teams ───────────────────────────────────────────────────────────────────
 
 /** GET /api/teams/capacity — Real-Time Engineering Team Load Heatmap */
 apiRouter.get("/teams/capacity", requireRole("agent", "admin"), (_req: AuthRequest, res: Response) => {
   res.json(getTeamCapacities());
 });
 
-/** POST /api/teams/rebalance — Intelligent Auto-Rebalance Caseload across engineers */
+/** POST /api/teams/rebalance — Intelligent Auto-Rebalance Caseload */
 apiRouter.post("/teams/rebalance", requireRole("admin"), (_req: AuthRequest, res: Response) => {
   const result = autoRebalanceCaseload();
   res.json(result);
 });
 
+// ─── Routing ─────────────────────────────────────────────────────────────────
+
 /** GET /api/routing/rules */
-apiRouter.get("/routing/rules", (_req: AuthRequest, res: Response) => {
-  res.json({ rules: ROUTING_RULES });
+apiRouter.get("/routing/rules", requireRole("admin"), (_req: AuthRequest, res: Response) => {
+  res.json({ rules: store.getRoutingRules() });
 });
+
+/** PUT /api/routing/rules — Admin only: update configurable routing rules */
+apiRouter.put("/routing/rules", requireRole("admin"), (req: AuthRequest, res: Response) => {
+  const { rules } = req.body as { rules?: RoutingRule[] };
+  if (!rules || !Array.isArray(rules)) {
+    res.status(400).json({ error: "A rules array is required." });
+    return;
+  }
+  const updated = store.setRoutingRules(rules);
+  res.json({ rules: updated });
+});
+
+// ─── Tickets ─────────────────────────────────────────────────────────────────
 
 /** GET /api/tickets — Scoped by user role */
 apiRouter.get("/tickets", (req: AuthRequest, res: Response) => {
   const user = req.user!;
   let tickets = store.getTickets();
 
-  // Role scoping: Customers can only see their own tickets
+  // Role scoping: Customers see only their own tickets
   if (user.role === "customer") {
     tickets = tickets.filter(
       (t) =>
@@ -53,6 +83,7 @@ apiRouter.get("/tickets", (req: AuthRequest, res: Response) => {
         (t.customerEmail && t.customerEmail.toLowerCase() === user.email.toLowerCase()),
     );
   }
+  // Agents see all tickets (queue) — admin sees all
 
   // Filters
   const { status, priority, category, search } = req.query;
@@ -89,7 +120,7 @@ apiRouter.get("/tickets", (req: AuthRequest, res: Response) => {
 });
 
 /** POST /api/tickets — Create ticket (Customers & Admins) */
-apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
+apiRouter.post("/tickets", requireRole("customer", "admin"), (req: AuthRequest, res: Response) => {
   const user = req.user!;
   const { subject, description, category, priority } = req.body;
 
@@ -121,11 +152,23 @@ apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
     return;
   }
 
+  // Idempotency / retry protection: prevent duplicate tickets on rapid double-submit or network retry
+  const recentDuplicate = store.getTickets().find(
+    (t) =>
+      t.customerId === user.userId &&
+      t.subject.toLowerCase() === subject.trim().toLowerCase() &&
+      t.description.toLowerCase() === description.trim().toLowerCase() &&
+      Date.now() - new Date(t.createdAtUtc).getTime() < 3000,
+  );
+  if (recentDuplicate) {
+    res.status(200).json(recentDuplicate);
+    return;
+  }
+
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
   const ticketNumber = store.getNextTicketNumber();
 
-  // Run Real-Time AI / Heuristic Triage Algorithm (as per user notebook instructions)
   const intelligence = analyzeTicketIntelligence(
     subject,
     description,
@@ -161,8 +204,6 @@ apiRouter.post("/tickets", (req: AuthRequest, res: Response) => {
   };
 
   store.createTicket(newTicket);
-
-  // Trigger automated routing (Category -> Team -> Least-loaded Agent)
   const routedTicket = processAutomatedRouting(newTicket);
 
   res.status(201).json(routedTicket);
@@ -178,7 +219,7 @@ apiRouter.get("/tickets/:id", (req: AuthRequest, res: Response) => {
     return;
   }
 
-  // Customer isolation
+  // Customers can only view their own tickets
   if (
     user.role === "customer" &&
     ticket.customerId !== user.userId &&
@@ -188,7 +229,7 @@ apiRouter.get("/tickets/:id", (req: AuthRequest, res: Response) => {
     return;
   }
 
-  // Backfill copilot diagnostics if ticket was created before intelligence engine update
+  // Backfill copilot diagnostics
   if (!ticket.rootCauseAnalysis || !ticket.suggestedAction || !ticket.recommendedReply) {
     const analysis = analyzeTicketIntelligence(
       ticket.subject,
@@ -206,7 +247,7 @@ apiRouter.get("/tickets/:id", (req: AuthRequest, res: Response) => {
   res.json(ticket);
 });
 
-/** PATCH /api/tickets/:id */
+/** PATCH /api/tickets/:id — Agent and Admin only */
 apiRouter.patch("/tickets/:id", requireRole("agent", "admin"), (req: AuthRequest, res: Response) => {
   const ticket = store.getTicketById(req.params.id);
   if (!ticket) {
@@ -214,16 +255,40 @@ apiRouter.patch("/tickets/:id", requireRole("agent", "admin"), (req: AuthRequest
     return;
   }
 
-  const { status, priority, category, assignedAgentId } = req.body;
+  const { status, priority, category, assignedAgentId, assignedTeam } = req.body;
   const updates: Partial<Ticket> = {};
 
   if (status) updates.status = status as TicketStatus;
   if (priority) updates.priority = priority as Priority;
   if (category) updates.category = category as Category;
+  if (assignedTeam !== undefined) updates.assignedTeam = assignedTeam;
+
+  // Real agent allotment (manual assignment, not automatic AI)
   if (assignedAgentId !== undefined) {
-    updates.assignedAgentId = assignedAgentId;
-    if (assignedAgentId) {
-      updates.assignedAgentName = req.user?.name || "Support Agent";
+    if (assignedAgentId === null || assignedAgentId === "" || assignedAgentId === "unassigned") {
+      updates.assignedAgentId = null;
+      updates.assignedAgentName = null;
+      if (ticket.status === "Assigned") {
+        updates.status = "Queued";
+      }
+    } else {
+      const targetAgent = store.getUserById(assignedAgentId);
+      if (!targetAgent || (targetAgent.role !== "agent" && targetAgent.role !== "admin")) {
+        res.status(400).json({ error: "Selected user is not an active agent or administrator." });
+        return;
+      }
+      if (!targetAgent.isActive) {
+        res.status(400).json({ error: "Cannot assign ticket to an inactive agent." });
+        return;
+      }
+      updates.assignedAgentId = targetAgent.userId;
+      updates.assignedAgentName = targetAgent.name;
+      if (!ticket.assignedTeam && targetAgent.assignedTeam) {
+        updates.assignedTeam = targetAgent.assignedTeam;
+      }
+      if (ticket.status === "New" || ticket.status === "Queued") {
+        updates.status = "Assigned";
+      }
     }
   }
 
@@ -245,6 +310,7 @@ apiRouter.post("/tickets/:id/reply", (req: AuthRequest, res: Response) => {
     return;
   }
 
+  // Customers can only reply to their own tickets
   if (
     user.role === "customer" &&
     ticket.customerId !== user.userId &&
@@ -291,6 +357,7 @@ apiRouter.post("/tickets/:id/resolve", (req: AuthRequest, res: Response) => {
     return;
   }
 
+  // Customers can only resolve their own tickets
   if (
     user.role === "customer" &&
     ticket.customerId !== user.userId &&
@@ -310,7 +377,7 @@ apiRouter.post("/tickets/:id/resolve", (req: AuthRequest, res: Response) => {
 });
 
 /** GET /api/tickets/export/csv — Enterprise CSV Audit Export */
-apiRouter.get("/tickets/export/csv", requireRole("agent", "admin"), (req: AuthRequest, res: Response) => {
+apiRouter.get("/tickets/export/csv", requireRole("agent", "admin"), (_req: AuthRequest, res: Response) => {
   const allTickets = store.getTickets();
   const headers = ["TicketNumber", "Subject", "Category", "Priority", "Status", "AssignedTeam", "UrgencyScore", "Sentiment", "CreatedDate", "ResolvedDate"];
   const rows = allTickets.map((t) => [
@@ -319,11 +386,11 @@ apiRouter.get("/tickets/export/csv", requireRole("agent", "admin"), (req: AuthRe
     `"${t.category}"`,
     `"${t.priority}"`,
     `"${t.status}"`,
-    `"${t.assignedTeam || 'Unassigned'}"`,
+    `"${t.assignedTeam || "Unassigned"}"`,
     `"${t.urgencyScore || 0}"`,
-    `"${t.sentiment || 'Neutral'}"`,
+    `"${t.sentiment || "Neutral"}"`,
     `"${t.createdAtUtc}"`,
-    `"${t.resolvedAtUtc || ''}"`,
+    `"${t.resolvedAtUtc || ""}"`,
   ]);
 
   const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
@@ -332,6 +399,8 @@ apiRouter.get("/tickets/export/csv", requireRole("agent", "admin"), (req: AuthRe
   res.setHeader("Content-Disposition", `attachment; filename="supporthub-tickets-${new Date().toISOString().split("T")[0]}.csv"`);
   res.send(csv);
 });
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
 
 /** GET /api/reports/summary — Agent / Admin only */
 apiRouter.get("/reports/summary", requireRole("agent", "admin"), (req: AuthRequest, res: Response) => {
@@ -369,7 +438,6 @@ apiRouter.get("/reports/summary", requireRole("agent", "admin"), (req: AuthReque
     }
   }
 
-  // Calculate SLA compliance
   let breachedSlaCount = 0;
   let totalUrgency = 0;
   for (const t of inWindow) {
@@ -377,47 +445,27 @@ apiRouter.get("/reports/summary", requireRole("agent", "admin"), (req: AuthReque
     if (t.slaDueUtc) {
       const dueTime = new Date(t.slaDueUtc).getTime();
       const compareTime = t.resolvedAtUtc ? new Date(t.resolvedAtUtc).getTime() : now.getTime();
-      if (compareTime > dueTime) {
-        breachedSlaCount++;
-      }
+      if (compareTime > dueTime) breachedSlaCount++;
     }
   }
 
   const openTickets = inWindow.filter((t) => t.status !== "Resolved" && t.status !== "Closed").length;
   const resolvedTickets = inWindow.filter((t) => t.status === "Resolved").length;
   const closedTickets = inWindow.filter((t) => t.status === "Closed").length;
+  const averageResolutionTimeHours = resolvedCount > 0 ? Number((totalResolutionTimeHours / resolvedCount).toFixed(1)) : null;
+  const slaComplianceRate = inWindow.length > 0 ? Math.round(((inWindow.length - breachedSlaCount) / inWindow.length) * 100) : 100;
+  const avgUrgencyScore = inWindow.length > 0 ? Math.round(totalUrgency / inWindow.length) : 0;
 
-  const averageResolutionTimeHours =
-    resolvedCount > 0 ? Number((totalResolutionTimeHours / resolvedCount).toFixed(1)) : null;
-
-  const slaComplianceRate =
-    inWindow.length > 0
-      ? Math.round(((inWindow.length - breachedSlaCount) / inWindow.length) * 100)
-      : 100;
-
-  const avgUrgencyScore =
-    inWindow.length > 0 ? Math.round(totalUrgency / inWindow.length) : 0;
-
-  // Compute daily volume over time
   const dayMap = new Map<string, number>();
   for (let d = new Date(windowStart); d <= now; d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().split("T")[0];
-    dayMap.set(key, 0);
+    dayMap.set(d.toISOString().split("T")[0], 0);
   }
-
   for (const t of inWindow) {
     const key = t.createdAtUtc.split("T")[0];
-    if (dayMap.has(key)) {
-      dayMap.set(key, (dayMap.get(key) || 0) + 1);
-    }
+    if (dayMap.has(key)) dayMap.set(key, (dayMap.get(key) || 0) + 1);
   }
 
-  const volumeOverTime = Array.from(dayMap.entries()).map(([date, count]) => ({
-    date,
-    count,
-  }));
-
-  const summary: ReportSummary = {
+  res.json({
     windowDays,
     windowStartUtc: windowStart.toISOString(),
     generatedAtUtc: now.toISOString(),
@@ -430,58 +478,229 @@ apiRouter.get("/reports/summary", requireRole("agent", "admin"), (req: AuthReque
     byPriority,
     byTeam,
     averageResolutionTimeHours,
-    volumeOverTime,
+    volumeOverTime: Array.from(dayMap.entries()).map(([date, count]) => ({ date, count })),
     slaComplianceRate,
     breachedSlaCount,
     avgUrgencyScore,
-  };
-
-  res.json(summary);
+  });
 });
 
-/** POST /api/users/register — called by frontend on every sign-in to auto-register customer */
+// ─── User management ─────────────────────────────────────────────────────────
+
+/**
+ * POST /api/users/register
+ * Called by frontend on every sign-in to ensure the user record exists.
+ * Role is determined by the DB (or bootstrapped from ADMIN_EMAIL) — never by this endpoint.
+ */
 apiRouter.post("/users/register", (req: AuthRequest, res: Response) => {
-  const user = req.user!;
-  // Only register customers (agents/admins are managed manually)
-  if (user.role !== "customer") {
-    res.json({ ok: true, skipped: true });
+  // User has already been upserted in requireAuth; just return the current profile.
+  const record = store.getUserById(req.user!.userId);
+  if (!record) {
+    res.status(500).json({ error: "User record not found after upsert" });
     return;
   }
-  const profile = store.upsertRegisteredCustomer({
-    userId: user.userId,
-    email: user.email,
-    name: user.name,
-    avatarUrl: (req.body as { avatarUrl?: string })?.avatarUrl,
-  });
-  res.json(profile);
+  res.json(store.buildProfile(record));
 });
 
-/** GET /api/users — Admin only: list agents + customers */
+/**
+ * GET /api/agents — Agent & Admin: list active agents and admins for manual assignment.
+ * Intentionally omits customer PII — only returns minimal fields needed for the dropdown.
+ */
+apiRouter.get("/agents", requireRole("agent", "admin"), (_req: AuthRequest, res: Response) => {
+  const allUsers = store.getUsers();
+  const assignable = allUsers
+    .filter((u) => (u.role === "agent" || u.role === "admin") && u.isActive)
+    .map((u) => ({
+      userId: u.userId,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      assignedTeam: u.assignedTeam,
+    }));
+  res.json({ agents: assignable });
+});
+
+/**
+ * GET /api/users — Admin only: list all users.
+ */
 apiRouter.get("/users", requireRole("admin"), (_req: AuthRequest, res: Response) => {
-  const agents = store.getAgents();
-  const customers = store.getRegisteredCustomers();
+  const allUsers = store.getUsers();
+  const profiles = allUsers.map((u) => store.buildProfile(u));
 
-  // Refresh ticket stats on agents from live ticket data
-  const allTickets = store.getTickets();
-  const enrichedAgents = agents.map((a) => {
-    const assigned = allTickets.filter((t) => t.assignedAgentId === a.userId);
-    const openTickets = assigned.filter((t) => t.status !== "Resolved" && t.status !== "Closed").length;
-    const resolvedTickets = assigned.filter((t) => t.status === "Resolved" || t.status === "Closed").length;
-    const lastTicket = assigned.sort((x, y) => y.updatedAtUtc.localeCompare(x.updatedAtUtc))[0];
-    return {
-      ...a,
-      totalTickets: assigned.length,
-      openTickets,
-      resolvedTickets,
-      lastActiveUtc: lastTicket?.updatedAtUtc ?? a.lastActiveUtc,
-    };
-  });
+  // Return split by role for backward-compat with existing Profiles page
+  const agents = profiles.filter((u) => u.role === "agent");
+  const customers = profiles.filter((u) => u.role === "customer");
+  const admins = profiles.filter((u) => u.role === "admin");
 
-  res.json({ agents: enrichedAgents, customers });
+  res.json({ users: profiles, agents, customers, admins });
 });
 
-/** POST /api/users/agents — Admin only: manually add a support agent */
+/**
+ * PATCH /api/users/:id/role — Admin only: change a user's role.
+ *
+ * Guards:
+ *  - Cannot change your own role.
+ *  - Cannot demote the last active admin.
+ *  - Cannot promote/demote with an invalid role string.
+ *  - Cannot modify a deactivated admin (they can't log in anyway, so it's a no-op risk).
+ */
+apiRouter.patch("/users/:id/role", requireRole("admin"), (req: AuthRequest, res: Response) => {
+  const actor = req.user!;
+  const targetId = req.params.id;
+  const { role } = req.body as { role?: string };
+
+  const validRoles: AppRole[] = ["customer", "agent", "admin"];
+  if (!role || !validRoles.includes(role as AppRole)) {
+    res.status(400).json({ error: `role must be one of: ${validRoles.join(", ")}` });
+    return;
+  }
+
+  if (actor.userId === targetId) {
+    res.status(400).json({ error: "You cannot change your own role." });
+    return;
+  }
+
+  const target = store.getUserById(targetId);
+  if (!target) {
+    res.status(404).json({ error: "User not found." });
+    return;
+  }
+
+  const previousRole = target.role;
+  if (previousRole === role) {
+    res.json({ message: "No change — user already has that role.", user: store.buildProfile(target) });
+    return;
+  }
+
+  // Guard: prevent removing the last active admin
+  if (previousRole === "admin" && role !== "admin") {
+    const activeAdmins = store.countActiveAdmins();
+    if (activeAdmins <= 1) {
+      res.status(409).json({
+        error: "Cannot demote the last active administrator. Promote another user to Admin first.",
+      });
+      return;
+    }
+  }
+
+  const updated = store.setUserRole(targetId, role as AppRole);
+  if (!updated) {
+    res.status(500).json({ error: "Failed to update user role." });
+    return;
+  }
+
+  // Audit log
+  const entry: AuditEntry = {
+    id: crypto.randomUUID(),
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    targetUserId: targetId,
+    targetEmail: target.email,
+    action: "role_change",
+    previousValue: previousRole,
+    newValue: role,
+    timestampUtc: new Date().toISOString(),
+  };
+  store.addAuditEntry(entry);
+
+  console.log(
+    `[audit] Role change: ${actor.email} changed ${target.email} from ${previousRole} to ${role}`
+  );
+
+  res.json({ message: `Role updated to ${role}.`, user: store.buildProfile(updated) });
+});
+
+/**
+ * PATCH /api/users/:id/status — Admin only: activate or deactivate a user.
+ *
+ * Guards:
+ *  - Cannot deactivate yourself.
+ *  - Cannot deactivate the last active admin.
+ */
+apiRouter.patch("/users/:id/status", requireRole("admin"), (req: AuthRequest, res: Response) => {
+  const actor = req.user!;
+  const targetId = req.params.id;
+  const { isActive } = req.body as { isActive?: boolean };
+
+  if (typeof isActive !== "boolean") {
+    res.status(400).json({ error: "isActive must be a boolean." });
+    return;
+  }
+
+  if (actor.userId === targetId) {
+    res.status(400).json({ error: "You cannot change your own account status." });
+    return;
+  }
+
+  const target = store.getUserById(targetId);
+  if (!target) {
+    res.status(404).json({ error: "User not found." });
+    return;
+  }
+
+  if (target.isActive === isActive) {
+    res.json({ message: "No change — status already set.", user: store.buildProfile(target) });
+    return;
+  }
+
+  // Guard: cannot deactivate the last active admin
+  if (!isActive && target.role === "admin") {
+    const activeAdmins = store.countActiveAdmins();
+    if (activeAdmins <= 1) {
+      res.status(409).json({
+        error: "Cannot deactivate the last active administrator.",
+      });
+      return;
+    }
+  }
+
+  const updated = store.setUserActive(targetId, isActive);
+  if (!updated) {
+    res.status(500).json({ error: "Failed to update account status." });
+    return;
+  }
+
+  // Audit log
+  const entry: AuditEntry = {
+    id: crypto.randomUUID(),
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    targetUserId: targetId,
+    targetEmail: target.email,
+    action: "status_change",
+    previousValue: String(target.isActive),
+    newValue: String(isActive),
+    timestampUtc: new Date().toISOString(),
+  };
+  store.addAuditEntry(entry);
+
+  console.log(
+    `[audit] Status change: ${actor.email} set ${target.email} isActive=${isActive}`
+  );
+
+  res.json({
+    message: `Account ${isActive ? "activated" : "deactivated"}.`,
+    user: store.buildProfile(updated),
+  });
+});
+
+/**
+ * GET /api/admin/audit — Admin only: retrieve audit log.
+ */
+apiRouter.get("/admin/audit", requireRole("admin"), (_req: AuthRequest, res: Response) => {
+  const entries = store.getAuditLog(200);
+  res.json({ entries });
+});
+
+// ─── Legacy agent endpoints (kept for backward compat) ───────────────────────
+
+/**
+ * POST /api/users/agents — Admin only: manually add a support agent by email.
+ * Creates a new user record with role=agent if they don't exist yet,
+ * or updates an existing user's role to agent.
+ */
 apiRouter.post("/users/agents", requireRole("admin"), (req: AuthRequest, res: Response) => {
+  const actor = req.user!;
   const { name, email, assignedTeam } = req.body as {
     name?: string;
     email?: string;
@@ -497,27 +716,114 @@ apiRouter.post("/users/agents", requireRole("admin"), (req: AuthRequest, res: Re
     return;
   }
 
-  const agent = store.addAgent({
-    userId: `agent-${Date.now()}`,
-    email: email.trim().toLowerCase(),
-    name: name.trim(),
-    role: "agent",
-    assignedTeam: assignedTeam?.trim() || undefined,
-    joinedAtUtc: new Date().toISOString(),
-    totalTickets: 0,
-    openTickets: 0,
-    resolvedTickets: 0,
-  });
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = store.getUserByEmail(normalizedEmail);
+  const now = new Date().toISOString();
 
-  res.status(201).json(agent);
+  let record = existing;
+  if (!record) {
+    // Pre-create a placeholder record — role will be updated when they actually log in
+    record = store.upsertUserOnLogin({
+      userId: `pre-${crypto.randomUUID()}`,
+      email: normalizedEmail,
+      name: name.trim(),
+    });
+  }
+
+  const previousRole = record.role;
+  const updated = store.setUserRole(record.userId, "agent");
+  if (!updated) {
+    res.status(500).json({ error: "Failed to create agent record." });
+    return;
+  }
+
+  if (assignedTeam !== undefined) {
+    store.setUserAssignedTeam(record.userId, assignedTeam ? assignedTeam.trim() : null);
+  }
+
+  // Audit log
+  if (previousRole !== "agent") {
+    store.addAuditEntry({
+      id: crypto.randomUUID(),
+      actorUserId: actor.userId,
+      actorEmail: actor.email,
+      targetUserId: record.userId,
+      targetEmail: normalizedEmail,
+      action: "role_change",
+      previousValue: previousRole,
+      newValue: "agent",
+      timestampUtc: now,
+    });
+  }
+
+  const finalRecord = store.getUserById(record.userId)!;
+  res.status(201).json(store.buildProfile(finalRecord));
 });
 
-/** DELETE /api/users/agents/:id — Admin only: remove a support agent */
+/**
+ * DELETE /api/users/agents/:id — Admin only: demote agent back to customer.
+ */
 apiRouter.delete("/users/agents/:id", requireRole("admin"), (req: AuthRequest, res: Response) => {
-  const removed = store.removeAgent(req.params.id);
-  if (!removed) {
+  const actor = req.user!;
+  const target = store.getUserById(req.params.id);
+
+  if (!target || target.role !== "agent") {
     res.status(404).json({ error: "Agent not found." });
     return;
   }
+
+  store.setUserRole(target.userId, "customer");
+  store.addAuditEntry({
+    id: crypto.randomUUID(),
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    targetUserId: target.userId,
+    targetEmail: target.email,
+    action: "role_change",
+    previousValue: "agent",
+    newValue: "customer",
+    timestampUtc: new Date().toISOString(),
+  });
+
   res.json({ ok: true });
+});
+
+/**
+ * PATCH /api/users/:id/team — Admin only: update user's assigned team.
+ */
+apiRouter.patch("/users/:id/team", requireRole("admin"), (req: AuthRequest, res: Response) => {
+  const actor = req.user!;
+  const targetId = req.params.id;
+  const { assignedTeam } = req.body as { assignedTeam?: string | null };
+
+  const target = store.getUserById(targetId);
+  if (!target) {
+    res.status(404).json({ error: "User not found." });
+    return;
+  }
+
+  const prevTeam = target.assignedTeam ?? "None";
+  const updated = store.setUserAssignedTeam(targetId, assignedTeam ? assignedTeam.trim() : null);
+  if (!updated) {
+    res.status(500).json({ error: "Failed to update assigned team." });
+    return;
+  }
+
+  // Audit log
+  store.addAuditEntry({
+    id: crypto.randomUUID(),
+    actorUserId: actor.userId,
+    actorEmail: actor.email,
+    targetUserId: targetId,
+    targetEmail: target.email,
+    action: "status_change",
+    previousValue: `team:${prevTeam}`,
+    newValue: `team:${assignedTeam ?? "None"}`,
+    timestampUtc: new Date().toISOString(),
+  });
+
+  res.json({
+    message: "Assigned team updated.",
+    user: store.buildProfile(updated),
+  });
 });

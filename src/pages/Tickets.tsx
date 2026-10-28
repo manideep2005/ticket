@@ -262,16 +262,16 @@ export function Tickets() {
                       </td>
                       <td className="hide-sm">
                         {unassigned ? (
-                          t.status === "Queued" || t.status === "New" ? (
-                            <span className="muted small">Auto-Routing…</span>
-                          ) : (
-                            <span className="muted small">Unassigned</span>
-                          )
+                          <span className="muted small">Unassigned</span>
                         ) : (
                           <div>
                             <div style={{ fontWeight: 550 }}>{t.assignedTeam}</div>
-                            {t.assignedAgentName && (
+                            {t.assignedAgentName ? (
                               <div className="cell-sub">{t.assignedAgentName}</div>
+                            ) : (
+                              <div className="cell-sub" style={{ fontSize: 11, color: "#d97706" }}>
+                                Queued (No agent)
+                              </div>
                             )}
                           </div>
                         )}
