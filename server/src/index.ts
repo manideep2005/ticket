@@ -6,6 +6,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { apiRouter } from "./routes.ts";
 import { getClientId } from "./auth.ts";
+import { testFirestoreConnection, isConnectedToFirestore } from "./firestore.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +24,8 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     gcpProject: process.env.GCP_PROJECT_ID || "ticket-511417",
+    database: "Google Cloud Firestore",
+    firestoreConnected: isConnectedToFirestore(),
     timestamp: new Date().toISOString(),
   });
 });
@@ -43,4 +46,5 @@ app.listen(port, () => {
   console.log(`🚀 SupportHub GCP Backend running on http://localhost:${port}`);
   console.log(`   GCP Project: ${process.env.GCP_PROJECT_ID || "ticket-511417"}`);
   console.log(`   OAuth Audience: ${getClientId() ? "configured" : "none"}`);
+  void testFirestoreConnection();
 });

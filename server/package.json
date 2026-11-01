@@ -8,6 +8,7 @@
     "dev": "node --experimental-strip-types --watch src/index.ts"
   },
   "dependencies": {
+    "@google-cloud/firestore": "^9.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

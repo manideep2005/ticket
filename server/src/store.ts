@@ -12,6 +12,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import type { AuditEntry, AppRole, RoutingRule, Ticket, TicketMessage, UserProfile, UserRecord } from "./types.ts";
+import { firestoreService } from "./firestore.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, "..", "data");
@@ -158,6 +159,7 @@ class Store {
   createTicket(ticket: Ticket): Ticket {
     this.data.tickets.unshift(ticket);
     this.save();
+    void firestoreService.saveTicket(ticket);
     return ticket;
   }
 
@@ -170,6 +172,7 @@ class Store {
       updatedAtUtc: new Date().toISOString(),
     };
     this.save();
+    void firestoreService.updateTicket(id, updates);
     return this.getTicketById(id)!;
   }
 
@@ -180,6 +183,7 @@ class Store {
   addMessage(msg: TicketMessage): TicketMessage {
     this.data.messages.push(msg);
     this.save();
+    void firestoreService.saveMessage(msg);
     return msg;
   }
 
