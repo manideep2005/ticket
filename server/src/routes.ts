@@ -12,7 +12,7 @@ export const apiRouter = Router();
 apiRouter.get("/config", (_req, res: Response) => {
   res.json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || "",
-    gcpProjectId: process.env.GCP_PROJECT_ID || "ticket-511417",
+    gcpProjectId: process.env.GCP_PROJECT_ID || "ticket-513706",
   });
 });
 

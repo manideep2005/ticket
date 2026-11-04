@@ -23,7 +23,7 @@ app.use("/api", apiRouter);
 app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
-    gcpProject: process.env.GCP_PROJECT_ID || "ticket-511417",
+    gcpProject: process.env.GCP_PROJECT_ID || "ticket-513706",
     database: "Google Cloud Firestore",
     firestoreConnected: isConnectedToFirestore(),
     timestamp: new Date().toISOString(),
@@ -44,7 +44,7 @@ if (fs.existsSync(distPath)) {
 
 app.listen(port, () => {
   console.log(`🚀 SupportHub GCP Backend running on http://localhost:${port}`);
-  console.log(`   GCP Project: ${process.env.GCP_PROJECT_ID || "ticket-511417"}`);
+  console.log(`   GCP Project: ${process.env.GCP_PROJECT_ID || "ticket-513706"}`);
   console.log(`   OAuth Audience: ${getClientId() ? "configured" : "none"}`);
   void testFirestoreConnection();
 });

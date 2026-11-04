@@ -19,7 +19,7 @@ let isFirestoreAvailable = false;
 export function initFirestore(): Firestore | null {
   if (firestoreInstance) return firestoreInstance;
 
-  const projectId = process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || "ticket-511417";
+  const projectId = process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || "ticket-513706";
   const databaseId = process.env.FIRESTORE_DATABASE_ID || "(default)";
 
   // Check for service account key path
