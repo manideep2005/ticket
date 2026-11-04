@@ -1,17 +1,17 @@
 /**
- * Typed API client for the Azure Functions backend.
+ * Typed API client for the Google Cloud backend (Cloud Functions / Cloud Run).
  *
  * This module performs REAL HTTP calls only — there is no mock/sample data
  * anywhere in this codebase (requirements core rule: "must not fake cloud
  * behavior"). When the backend is not deployed or not reachable the caller
  * receives a typed error and the UI renders an honest connection-error state.
  *
- * Auth: on Azure Static Web Apps the Easy Auth session cookie is sent
- * automatically with same-origin requests, and the backend additionally
- * validates the x-ms-client-principal header — the UI is never trusted for
- * authorization (FR-07).
+ * Auth: Sends the Google ID token in the standard `Authorization: Bearer <token>`
+ * header. The Google Cloud backend verifies the signature via Google's public
+ * keys (google-auth-library) — the UI is never trusted for authorization (FR-07).
  */
 
+import { getAuthToken } from "./auth";
 import type {
   CreateTicketRequest,
   ReportSummary,
@@ -20,9 +20,10 @@ import type {
   TicketListParams,
   TicketMessage,
   UpdateTicketRequest,
+  UserProfile,
 } from "./types";
 
-/** Base URL for the Functions API. Empty string = same origin (Static Web Apps). */
+/** Base URL for the Google Cloud API. Empty string = same origin. */
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
 
 export type ApiErrorKind =
@@ -72,7 +73,7 @@ export function describeError(err: unknown): string {
       case "network":
         return "Cannot reach the support API. The backend may not be running or the network is offline.";
       case "not-found":
-        return "Support API endpoint not found. The Azure Functions backend is not deployed yet (or VITE_API_BASE_URL is wrong).";
+        return "Support API endpoint not found. The Google Cloud backend (Cloud Functions / Cloud Run) is not deployed yet (or VITE_API_BASE_URL is wrong).";
       case "unauthorized":
         return "You are not signed in. Sign in to continue.";
       case "forbidden":
@@ -106,8 +107,10 @@ interface RequestOptions {
 
 async function request<T>(path: string, init?: RequestOptions): Promise<T> {
   const url = `${API_BASE}${path}`;
+  const token = getAuthToken();
   const headers: Record<string, string> = {
     Accept: "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(init?.headers ?? {}),
   };
   const hasBody = init?.body !== undefined;
@@ -132,6 +135,13 @@ async function request<T>(path: string, init?: RequestOptions): Promise<T> {
   const body = await parseBody(res);
 
   if (!res.ok) {
+    if ((res.status === 401 || res.status === 403) && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("supporthub:auth_error", {
+          detail: { status: res.status },
+        }),
+      );
+    }
     const errObj =
       body && typeof body === "object" ? (body as Record<string, unknown>) : {};
     const message =
@@ -159,6 +169,11 @@ function toQuery(params: Record<string, string | number | undefined | null>): st
 }
 
 export const api = {
+  /** GET /api/me — Returns the authenticated user's backend profile and role */
+  getMe(): Promise<{ user: import("./types").AuthUser }> {
+    return request("/api/me");
+  },
+
   /** GET /api/tickets — backend scopes visibility by role (FR-03). */
   listTickets(params: TicketListParams = {}): Promise<{ tickets: Ticket[] } | Ticket[]> {
     return request(`/api/tickets${toQuery({ ...params })}`);
@@ -206,6 +221,78 @@ export const api = {
   /** GET /api/routing/rules — documented routing rule set (FR-05). */
   getRoutingRules(): Promise<{ rules: RoutingRule[] } | RoutingRule[]> {
     return request("/api/routing/rules");
+  },
+
+  /** PUT /api/routing/rules — Admin only: update routing rules */
+  updateRoutingRules(rules: RoutingRule[]): Promise<{ rules: RoutingRule[] }> {
+    return request("/api/routing/rules", {
+      method: "PUT",
+      body: { rules },
+    });
+  },
+
+  /** GET /api/teams/capacity — Real-time team capacity heatmap */
+  getTeamCapacities(): Promise<{ capacities: Array<{ team: string; totalAgents: number; activeAgents: number; activeTickets: number; loadPercent: number; status: "Optimal" | "Moderate" | "Congested"; }> }> {
+    return request("/api/teams/capacity");
+  },
+
+  /** POST /api/teams/rebalance — Auto-rebalance caseload across agents */
+  rebalanceCaseload(): Promise<{ rebalancedCount: number; message: string }> {
+    return request("/api/teams/rebalance", { method: "POST" });
+  },
+
+  /** GET /api/agents — Agent/Admin: list active agents & admins for manual assignment */
+  listAgents(): Promise<{ agents: Array<{ userId: string; name: string; email: string; role: string; assignedTeam?: string }> }> {
+    return request("/api/agents");
+  },
+
+  /** GET /api/users — Admin only: list all users */
+  listUsers(): Promise<{ users: UserProfile[]; agents: UserProfile[]; customers: UserProfile[]; admins: UserProfile[] }> {
+    return request("/api/users");
+  },
+
+  /** PATCH /api/users/:id/role — Admin only: change a user's role */
+  patchUserRole(userId: string, role: string): Promise<{ message: string; user: UserProfile }> {
+    return request(`/api/users/${encodeURIComponent(userId)}/role`, {
+      method: "PATCH",
+      body: { role },
+    });
+  },
+
+  /** PATCH /api/users/:id/status — Admin only: activate/deactivate a user */
+  patchUserStatus(userId: string, isActive: boolean): Promise<{ message: string; user: UserProfile }> {
+    return request(`/api/users/${encodeURIComponent(userId)}/status`, {
+      method: "PATCH",
+      body: { isActive },
+    });
+  },
+
+  /** PATCH /api/users/:id/team — Admin only: update user's assigned team */
+  patchUserTeam(userId: string, assignedTeam: string | null): Promise<{ message: string; user: UserProfile }> {
+    return request(`/api/users/${encodeURIComponent(userId)}/team`, {
+      method: "PATCH",
+      body: { assignedTeam },
+    });
+  },
+
+  /** GET /api/admin/audit — Admin only: retrieve audit log */
+  getAuditLog(): Promise<{ entries: Array<{ id: string; actorEmail: string; targetEmail: string; action: string; previousValue: string; newValue: string; timestampUtc: string }> }> {
+    return request("/api/admin/audit");
+  },
+
+  /** POST /api/users/agents — Admin only: add a support agent */
+  addAgent(payload: { name: string; email: string; assignedTeam?: string }): Promise<UserProfile> {
+    return request("/api/users/agents", { method: "POST", body: payload });
+  },
+
+  /** DELETE /api/users/agents/:id — Admin only: remove (demote) a support agent */
+  removeAgent(userId: string): Promise<{ ok: boolean }> {
+    return request(`/api/users/agents/${encodeURIComponent(userId)}`, { method: "DELETE" });
+  },
+
+  /** POST /api/users/register — auto-called on every sign-in */
+  registerUser(avatarUrl?: string): Promise<unknown> {
+    return request("/api/users/register", { method: "POST", body: { avatarUrl } });
   },
 };
 

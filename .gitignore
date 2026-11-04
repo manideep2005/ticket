@@ -14,6 +14,7 @@ out/
 .env
 .env.*
 !.env.example
+!.env.backend.example
 local.settings.json
 *.local.settings.json
 secrets/
@@ -21,9 +22,13 @@ secrets/
 *.pfx
 *.key
 *.publishsettings
+service-account*.json
+gcp-credentials*.json
 azure-credentials.json
-azure-values*.json
-service-principal.json
+
+# Local runtime data
+server/data/
+data/
 
 # Logs / coverage
 logs/
